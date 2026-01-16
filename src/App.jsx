@@ -35,16 +35,11 @@ const App = () => {
       <div className="max-w-md mx-auto relative z-10">
         <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b-4 border-red-500 text-center py-5">
           <div className="flex items-center justify-center mb-2">
-            {/* <div className="relative bg-gradient-to-br from-red-500 to-red-700 p-3 rounded-2xl shadow-lg">
-              <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl blur-xl opacity-50 animate-pulse"></div>
-              <svg className="relative w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-              </svg>
-            </div> */}
+            <img src="/adda.png" alt="Adda Logo" className="w-12 h-12 rounded-full" />
           </div>
-          <h1 className="text-4xl font-black bg-gradient-to-r from-red-600 via-red-500 to-red-700 bg-clip-text text-transparent">
+          {/* <h1 className="text-4xl font-black bg-gradient-to-r from-red-600 via-red-500 to-red-700 bg-clip-text text-transparent">
             Adda Menu
-          </h1>
+          </h1> */}
           <p className="text-sm text-gray-600 font-medium mt-1">Where Every Bite Tells a Story</p>
         </header>
 

@@ -77,7 +77,7 @@ export const menuData = [
     description: "Refreshing blue mocktail with citrus twist",
     rating: 4.2,
     popular: false,
-    image: "https://images.unsplash.com/photo-1551024709-8f23befc6cf7"
+    image: "https://drive.google.com/file/d/1pXUFI0SEUYIsIkBd6PRoZon3ZsDJXPaF/view?usp=drivesdk"
   },
   {
     id: 9,
