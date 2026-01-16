@@ -17,7 +17,7 @@ export const menuData = [
     description: "Hot and tangy peri peri flavored veg manchurian",
     rating: 4.2,
     popular: false,
-    image: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d"
+    image: "/periperiMunch.png"
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ export const menuData = [
     description: "Loaded veg roll with melting cheese and crunchy filling",
     rating: 4.6,
     popular: true,
-    image: "https://images.unsplash.com/photo-1601050690597-df0568f70950"
+    image: "/cheeseRol.png"
   },
   {
     id: 4,
@@ -37,7 +37,7 @@ export const menuData = [
     description: "Signature veg roll with special house spices",
     rating: 4.3,
     popular: true,
-    image: "https://images.unsplash.com/photo-1603899122634-f086ca5f5ddd"
+    image: "/muchrol.png"
   },
   {
     id: 5,
@@ -47,7 +47,7 @@ export const menuData = [
     description: "Crunchy bhel mixed with fresh veggies and tangy chutneys",
     rating: 4.1,
     popular: false,
-    image: "https://images.unsplash.com/photo-1601050690147-70c6cfc7b8f8"
+    image: "/munchbhel.png"
   },
   {
     id: 6,
@@ -57,7 +57,7 @@ export const menuData = [
     description: "Grilled sandwich stuffed with gooey cheese",
     rating: 4.5,
     popular: true,
-    image: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af"
+    image: "/sandwich.png"
   },
   {
     id: 7,
@@ -67,18 +67,19 @@ export const menuData = [
     description: "Chilled creamy coffee topped with rich foam",
     rating: 4.4,
     popular: true,
-    image: "https://images.unsplash.com/photo-1594631661960-34762327295c"
+    image: "/coldCofee.png"
   },
-  {
-    id: 8,
-    name: "Blue Mocktail",
-    price: 40,
-    category: "Beverage",
-    description: "Refreshing blue mocktail with citrus twist",
-    rating: 4.2,
-    popular: false,
-    image: "https://drive.google.com/file/d/1pXUFI0SEUYIsIkBd6PRoZon3ZsDJXPaF/view?usp=drivesdk"
-  },
+{
+  id: 8,
+  name: "Blue Mocktail",
+  price: 40,
+  category: "Beverage",
+  description: "Refreshing blue mocktail with citrus twist",
+  rating: 4.2,
+  popular: true,
+  image: "/blueMocktail.png"
+}
+,
   {
     id: 9,
     name: "French Fries",
@@ -97,7 +98,7 @@ export const menuData = [
     description: "Fries tossed in spicy peri peri seasoning",
     rating: 4.6,
     popular: true,
-    image: "https://images.unsplash.com/photo-1625944526115-3f9b28b7f2a1"
+    image: "/periperiFries.png"
   },
   {
     id: 11,
@@ -107,7 +108,7 @@ export const menuData = [
     description: "Desi tandoori masala coated crispy fries",
     rating: 4.5,
     popular: true,
-    image: "https://images.unsplash.com/photo-1639024471283-03518883512d"
+    image: "tandoriFries.png"
   },
   {
     id: 12,
@@ -127,7 +128,7 @@ export const menuData = [
     description: "Grilled sandwich served with fries and refreshing mocktail",
     rating: 4.8,
     popular: true,
-    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1"
+    image: "/sandwitchCombo.png"
   },
   {
     id: 14,
