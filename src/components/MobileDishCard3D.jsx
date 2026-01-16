@@ -1,7 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 const MobileDishCard3D = ({ dish }) => {
   const cardRef = useRef(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const card = cardRef.current;
@@ -30,6 +31,13 @@ const MobileDishCard3D = ({ dish }) => {
     };
   }, []);
 
+  const handleImageClick = () => {
+    setIsModalOpen(true);
+    setTimeout(() => {
+      setIsModalOpen(false);
+    }, 3000);
+  };
+
   return (
     <div className="group relative">
       {/* Card glow effect */}
@@ -50,7 +58,8 @@ const MobileDishCard3D = ({ dish }) => {
           <img
             src={dish.image}
             alt={dish.name}
-            className="w-full h-full object-cover opacity-100 group-hover:scale-110 transition-all duration-500"
+            className="w-full h-full object-cover opacity-100 group-hover:scale-110 transition-all duration-500 cursor-pointer"
+            onClick={handleImageClick}
           />
 
           {/* Shimmer effect */}
@@ -95,6 +104,19 @@ const MobileDishCard3D = ({ dish }) => {
           </div>
         </div>
       </div>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 perspective-container">
+          <div className="rotating-camera">
+            <img
+              src={dish.image}
+              alt={dish.name}
+              className="max-w-full max-h-full"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
