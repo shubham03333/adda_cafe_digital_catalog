@@ -67,11 +67,17 @@ npm run dev
 
 ## Vercel
 
-1. Push the repo and import it in Vercel (Next.js).
-2. Add the same environment variables.
+This is a **Next.js** app (not Vite). Next.js does not produce a `dist` folder.
+
+1. In Vercel → Project → **Settings → General → Build and Deployment**:
+   - **Framework Preset:** Next.js
+   - **Build Command:** `npm run build`
+   - **Output Directory:** leave empty (do not use `dist`)
+   - **Install Command:** `npm install`
+2. Add the same environment variables as `.env.example`.
 3. Set `NEXT_PUBLIC_SITE_URL` to your production domain.
-4. Redeploy after changing env vars.
-5. In the Vercel project, enable the firewall / attack challenge if you see abusive traffic. App-level rate limits cannot stop a large DDoS; the CDN can.
+4. Redeploy after changing env vars or settings.
+5. Enable the firewall / attack challenge if you see abusive traffic. App-level rate limits cannot stop a large DDoS; the CDN can.
 
 ## Security
 
