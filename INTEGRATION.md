@@ -38,7 +38,7 @@ Catalog verifies with `POS_WEBHOOK_SECRET`. Set POS `CATALOG_WEBHOOK_URL` to:
 
 ## Table mapping
 
-QR uses `/t/{n}`. POS uses `table_code`. Map in Admin settings JSON or `TABLE_NUMBER_TO_CODE={"5":"T1"}`. Default: string of the number (`3` → `"3"`).
+QR uses `/t/{n}` (example `/t/5/order`). POS `table_code` values are `T01`–`T12`. Default map: `5` → `T05`. Override with Admin table_map JSON or `TABLE_NUMBER_TO_CODE`.
 
 ## SQL (manual)
 

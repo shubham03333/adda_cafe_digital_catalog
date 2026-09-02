@@ -130,7 +130,7 @@ export async function placeOrder(input: {
         : "Could not reach the kitchen. Please ask a waiter, or try again in a moment.";
     const message =
       /invalid or inactive table/i.test(raw)
-        ? `Table ${input.tableNumber} is not an active POS table. Ask staff to add or activate it, or set TABLE_NUMBER_TO_CODE (for example {"${input.tableNumber}":"T${input.tableNumber}"}).`
+        ? `Table ${input.tableNumber} is not an active POS table (expected code like T${String(input.tableNumber).padStart(2, "0")}).`
         : raw;
     await trackEvent("pos_api_error", { action: "place_order", message });
     return { ok: false as const, error: message };

@@ -8,6 +8,10 @@ function numericTable(code: string) {
   return Number.isFinite(value) ? value : null;
 }
 
+function paddedPosCode(tableNumber: number) {
+  return `T${String(tableNumber).padStart(2, "0")}`;
+}
+
 export function tableCodeFromNumber(tableNumber: number, tableMap: Record<string, string> = {}) {
   const fromEnv = process.env.TABLE_NUMBER_TO_CODE;
   let envMap: Record<string, string> = {};
@@ -19,7 +23,7 @@ export function tableCodeFromNumber(tableNumber: number, tableMap: Record<string
     }
   }
   const key = String(tableNumber);
-  return envMap[key] || tableMap[key] || key;
+  return envMap[key] || tableMap[key] || paddedPosCode(tableNumber);
 }
 
 export async function resolvePosTableCode(tableNumber: number) {
@@ -28,7 +32,10 @@ export async function resolvePosTableCode(tableNumber: number) {
     const data = await posFetch<{ tables: { table_code: string }[] }>("/api/integrations/tables");
     const tables = data.tables ?? [];
     const exact = tables.find(
-      (table) => table.table_code === mapped || table.table_code === String(tableNumber)
+      (table) =>
+        table.table_code === mapped ||
+        table.table_code === String(tableNumber) ||
+        table.table_code === paddedPosCode(tableNumber)
     );
     if (exact) return exact.table_code;
     const byNumber = tables.find((table) => numericTable(table.table_code) === tableNumber);

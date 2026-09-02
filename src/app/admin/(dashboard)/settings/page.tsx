@@ -45,7 +45,7 @@ export default async function AdminSettingsPage({
               className="mt-1"
               name="table_map"
               defaultValue={JSON.stringify(settings.table_map ?? {})}
-              placeholder='{"3":"3","5":"T1"}'
+              placeholder='{"1":"T01","5":"T05","12":"T12"}'
             />
           </label>
           <Button type="submit">Save settings</Button>
