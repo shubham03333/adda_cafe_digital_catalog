@@ -1,4 +1,4 @@
-import { OrderScaffold } from "@/components/order/OrderScaffold";
+import { OrderMenu } from "@/components/order/OrderMenu";
 import { getLiveMenu } from "@/lib/menu";
 import { isOrderingEnabled } from "@/lib/pos/config";
 
@@ -11,7 +11,7 @@ export default async function TableOrderPage({
   const tableNumber = Number.parseInt(table, 10);
   const dishes = await getLiveMenu();
   return (
-    <OrderScaffold
+    <OrderMenu
       tableNumber={Number.isFinite(tableNumber) ? tableNumber : 0}
       dishes={dishes}
       orderingEnabled={isOrderingEnabled()}

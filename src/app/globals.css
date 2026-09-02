@@ -15,11 +15,15 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    color-scheme: light;
+    background: #fafafa;
   }
 
   body {
     margin: 0;
     font-family: var(--font-sans);
+    background: #fafafa;
+    color: #111827;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
@@ -41,6 +45,18 @@
 
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.7);
+  }
+  80% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 

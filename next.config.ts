@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const extraDevOrigins = (process.env.ALLOWED_DEV_ORIGINS ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["192.168.0.3", ...extraDevOrigins],
   poweredByHeader: false,
   outputFileTracingRoot: path.join(__dirname),
   images: {

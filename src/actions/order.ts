@@ -5,7 +5,7 @@ import { DEFAULT_CAFE_ID } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { isOrderingEnabled, posConfigured } from "@/lib/pos/config";
 import { getOrderStatus, submitOrderToPos } from "@/lib/pos/order-client";
-import { getTableMap, tableCodeFromNumber } from "@/lib/pos/table-map";
+import { resolvePosTableCode } from "@/lib/pos/table-map";
 import { PosApiError } from "@/lib/pos/client";
 
 type CartItem = {
@@ -21,6 +21,7 @@ export async function placeOrder(input: {
   total: number;
   sessionId: string;
   idempotencyKey: string;
+  notes?: string;
 }) {
   if (!isOrderingEnabled()) {
     return { ok: false as const, error: "Ordering is not enabled yet." };
@@ -36,8 +37,7 @@ export async function placeOrder(input: {
   }
 
   const supabase = createServiceSupabase();
-  const tableMap = await getTableMap();
-  const tableCode = tableCodeFromNumber(input.tableNumber, tableMap);
+  const tableCode = await resolvePosTableCode(input.tableNumber);
   const computed = input.items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
   if (Math.abs(computed - Number(input.total)) > 0.01) {
     return { ok: false as const, error: "Cart total does not match." };
@@ -85,6 +85,7 @@ export async function placeOrder(input: {
       items: input.items,
       total: Number(computed.toFixed(2)),
       customer_ref: input.sessionId,
+      notes: input.notes?.trim() || undefined,
     });
 
     if (supabase) {
@@ -123,10 +124,14 @@ export async function placeOrder(input: {
       total: Number(computed.toFixed(2)),
     };
   } catch (error) {
-    const message =
+    const raw =
       error instanceof PosApiError
         ? error.message
         : "Could not reach the kitchen. Please ask a waiter, or try again in a moment.";
+    const message =
+      /invalid or inactive table/i.test(raw)
+        ? `Table ${input.tableNumber} is not an active POS table. Ask staff to add or activate it, or set TABLE_NUMBER_TO_CODE (for example {"${input.tableNumber}":"T${input.tableNumber}"}).`
+        : raw;
     await trackEvent("pos_api_error", { action: "place_order", message });
     return { ok: false as const, error: message };
   }
