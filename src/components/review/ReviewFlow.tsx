@@ -20,6 +20,7 @@ import { RecommendPicker } from "@/components/review/RecommendPicker";
 import { LanguagePicker } from "@/components/review/LanguagePicker";
 import { type LanguageCode } from "@/lib/branding";
 import { menuData, type Dish } from "@/data/menuData";
+import { isOrderingEnabled } from "@/lib/pos/flags-client";
 import {
   generateReviews,
   recordGoogleClick,
@@ -28,6 +29,7 @@ import {
   submitPrivateFeedback,
   submitRating,
 } from "@/actions/review";
+import { getSessionOrderedNames } from "@/actions/order";
 import type { ReviewSuggestion } from "@/types";
 
 const feedbackFormSchema = z.object({
@@ -82,6 +84,12 @@ export function ReviewFlow({ tableNumber = null, dishes = menuData }: ReviewFlow
     if (pending && navigator.onLine) {
       void submitPrivateFeedback(JSON.parse(pending)).then(() => {
         localStorage.removeItem("adda-pending-feedback");
+      });
+    }
+    const id = sessionStorage.getItem("adda-review-session");
+    if (id) {
+      void getSessionOrderedNames(id, tableNumber).then((names) => {
+        if (names.length) setOrderedItems(names);
       });
     }
   }, [tableNumber]);
@@ -197,6 +205,14 @@ export function ReviewFlow({ tableNumber = null, dishes = menuData }: ReviewFlow
                 <UtensilsCrossed className="h-4 w-4" />
                 Back to menu
               </Link>
+              {tableNumber && isOrderingEnabled() ? (
+                <Link
+                  href={`/t/${tableNumber}/order`}
+                  className="mt-2 flex min-h-12 items-center justify-center text-sm font-semibold text-gray-600"
+                >
+                  Order
+                </Link>
+              ) : null}
             </motion.div>
           )}
 

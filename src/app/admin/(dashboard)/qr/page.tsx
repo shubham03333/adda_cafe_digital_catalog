@@ -1,4 +1,4 @@
-import { QrGrid } from "@/components/admin/QrGrid";
+import { QrDestinationPicker } from "@/components/admin/QrDestinationPicker";
 import { getSettings } from "@/lib/admin-stats";
 
 export default async function AdminQrPage() {
@@ -8,9 +8,9 @@ export default async function AdminQrPage() {
     <div className="space-y-4 pb-16">
       <h1 className="text-3xl font-black text-gray-800 dark:text-white">Table QR codes</h1>
       <p className="text-sm text-gray-600 dark:text-gray-300">
-        Print these for each table. Scanning opens the review assistant, then guests can open the menu.
+        Print these for each table. Choose review, menu, or order (when ordering is enabled).
       </p>
-      <QrGrid tableCount={settings.table_count} />
+      <QrDestinationPicker tableCount={settings.table_count} />
     </div>
   );
 }

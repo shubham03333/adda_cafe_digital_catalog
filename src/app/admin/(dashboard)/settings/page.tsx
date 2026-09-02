@@ -39,6 +39,15 @@ export default async function AdminSettingsPage({
             Number of tables
             <Input className="mt-1" type="number" min={1} max={200} name="table_count" defaultValue={settings.table_count} />
           </label>
+          <label className="block text-sm font-semibold">
+            Table map (catalog number → POS table_code)
+            <Input
+              className="mt-1"
+              name="table_map"
+              defaultValue={JSON.stringify(settings.table_map ?? {})}
+              placeholder='{"3":"3","5":"T1"}'
+            />
+          </label>
           <Button type="submit">Save settings</Button>
         </form>
       </Card>

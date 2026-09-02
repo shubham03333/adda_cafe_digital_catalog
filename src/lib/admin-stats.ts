@@ -147,16 +147,31 @@ export async function getSettings() {
       cafe_name: "Adda",
       google_review_url: "",
       table_count: 10,
+      table_map: {},
     };
   }
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("settings")
-    .select("cafe_name, google_review_url, table_count")
+    .select("cafe_name, google_review_url, table_count, table_map")
     .eq("cafe_id", DEFAULT_CAFE_ID)
     .maybeSingle();
+  if (error) {
+    const fallback = await supabase
+      .from("settings")
+      .select("cafe_name, google_review_url, table_count")
+      .eq("cafe_id", DEFAULT_CAFE_ID)
+      .maybeSingle();
+    return {
+      cafe_name: fallback.data?.cafe_name ?? "Adda",
+      google_review_url: fallback.data?.google_review_url ?? "",
+      table_count: fallback.data?.table_count ?? 10,
+      table_map: {},
+    };
+  }
   return {
     cafe_name: data?.cafe_name ?? "Adda",
     google_review_url: data?.google_review_url ?? "",
     table_count: data?.table_count ?? 10,
+    table_map: (data?.table_map as Record<string, string> | null) ?? {},
   };
 }

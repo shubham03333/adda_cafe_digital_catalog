@@ -11,6 +11,7 @@ import { CafeHeader } from "@/components/layout/CafeHeader";
 import { CafeShell } from "@/components/layout/CafeShell";
 import { useDevicePerformance } from "@/hooks/useDevicePerformance";
 import { menuData, categoriesFrom, type Dish } from "@/data/menuData";
+import { isOrderingEnabled } from "@/lib/pos/flags-client";
 
 const RECENT_KEY = "adda-recent-searches";
 
@@ -109,7 +110,7 @@ export function MenuPage({ tableNumber = null, dishes = menuData }: MenuPageProp
         onCategoryChange={setActiveCategory}
       />
 
-      <main className="px-4 pt-5 pb-28">
+      <main className="px-4 pt-5 pb-40">
         {filteredDishes.length === 0 ? (
           <div className="rounded-3xl bg-white dark:bg-zinc-900 p-8 text-center shadow-sm">
             <p className="text-lg font-bold text-gray-800 dark:text-white">No dishes match that</p>
@@ -147,7 +148,15 @@ export function MenuPage({ tableNumber = null, dishes = menuData }: MenuPageProp
       </main>
 
       <div className="fixed bottom-0 inset-x-0 z-50">
-        <div className="max-w-md mx-auto px-4 pb-4">
+        <div className="max-w-md mx-auto px-4 pb-4 space-y-2">
+          {tableNumber && isOrderingEnabled() ? (
+            <Link
+              href={`/t/${tableNumber}/order`}
+              className="flex min-h-12 items-center justify-center rounded-2xl border-2 border-red-200 bg-white font-semibold text-red-700"
+            >
+              Order
+            </Link>
+          ) : null}
           <Link
             href={reviewHref}
             className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold shadow-xl"

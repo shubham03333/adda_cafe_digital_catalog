@@ -18,9 +18,10 @@ This flow helps people write a review. It copies text and opens Google. It does 
 | `/` | Redirects to `/review` |
 | `/review` | Review assistant (QR default) |
 | `/t/3` | Same review flow, tagged as table 3 |
+| `/t/3/order` | Order scaffold (flag-gated) |
 | `/menu` | Digital menu |
 | `/staff` | Staff login |
-| `/admin/menu` | Add and update dishes |
+| `/admin/menu` | Customer display menu + POS sync |
 | `/admin/qr` | Printable table QR codes |
 | `/admin/settings` | Google Review URL, table count |
 
@@ -37,14 +38,22 @@ ADMIN_PASSWORD=
 ADMIN_COOKIE_SECRET=
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_CAFE_ID=00000000-0000-0000-0000-000000000001
+POS_INTEGRATION_BASE_URL=
+POS_INTEGRATION_API_KEY=
+POS_WEBHOOK_SECRET=
+CRON_SECRET=
+MENU_SYNC_MODE=pos
+NEXT_PUBLIC_ORDERING_ENABLED=false
 ```
+
+See `INTEGRATION.md` for POS menu sync, ordering, and webhooks.
 
 Get a Gemini key from [Google AI Studio](https://aistudio.google.com/apikey). Use `gemini-2.0-flash` (free-tier friendly).
 
 ## Database
 
 1. Create a Supabase project.
-2. Run `supabase/schema.sql` in the SQL editor (includes `menu_items` and the `menu-photos` storage bucket).
+2. Run `supabase/schema.sql`, then `supabase/migrations/002_pos_integration.sql` and `003_orders.sql`.
 3. Paste the project URL and keys into `.env.local`.
 4. Put your Google review link in **Admin → Settings**.
 5. Manage dishes in **Admin → Menu**.

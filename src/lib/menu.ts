@@ -1,9 +1,11 @@
 import { createServiceSupabase } from "@/lib/supabase/admin";
 import { DEFAULT_CAFE_ID } from "@/lib/utils";
 import { menuData, type Dish } from "@/data/menuData";
+import { isPosMenuSync } from "@/lib/pos/config";
 
 type MenuRow = {
   id: string;
+  pos_menu_item_id?: number | null;
   name: string;
   description: string | null;
   price: number | string;
@@ -18,6 +20,7 @@ type MenuRow = {
 function mapRow(row: MenuRow): Dish {
   return {
     id: row.id,
+    posMenuItemId: row.pos_menu_item_id ?? null,
     name: row.name,
     description: row.description ?? "",
     price: Number(row.price),
@@ -36,6 +39,7 @@ async function seedIfEmpty() {
     .select("id", { count: "exact", head: true })
     .eq("cafe_id", DEFAULT_CAFE_ID);
   if (error || (count && count > 0)) return;
+  if (isPosMenuSync()) return;
   await supabase.from("menu_items").insert(
     menuData.map((dish, index) => ({
       cafe_id: DEFAULT_CAFE_ID,
@@ -59,7 +63,7 @@ export async function getLiveMenu(): Promise<Dish[]> {
     await seedIfEmpty();
     const { data, error } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, category, rating, popular, available, image, sort_order")
+      .select("id, pos_menu_item_id, name, description, price, category, rating, popular, available, image, sort_order")
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .eq("available", true)
       .order("sort_order", { ascending: true });
@@ -79,7 +83,7 @@ export async function getAdminMenu(): Promise<(Dish & { available: boolean; sort
     await seedIfEmpty();
     const { data, error } = await supabase
       .from("menu_items")
-      .select("id, name, description, price, category, rating, popular, available, image, sort_order")
+      .select("id, pos_menu_item_id, name, description, price, category, rating, popular, available, image, sort_order")
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .order("sort_order", { ascending: true });
     if (error || !data) {

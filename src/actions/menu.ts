@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServiceSupabase } from "@/lib/supabase/admin";
 import { DEFAULT_CAFE_ID } from "@/lib/utils";
+import { isPosMenuSync } from "@/lib/pos/config";
 
 async function requireAdmin() {
   if (!(await isAdminAuthenticated())) redirect("/staff");
@@ -73,24 +74,37 @@ export async function saveMenuItem(formData: FormData) {
       return { ok: false as const, error: "Invalid photo URL" };
     }
 
-    const row = {
-      cafe_id: DEFAULT_CAFE_ID,
-      ...parsed,
-      image,
-      updated_at: new Date().toISOString(),
-    };
+    const row = isPosMenuSync()
+      ? {
+          rating: parsed.rating,
+          popular: parsed.popular,
+          image,
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          cafe_id: DEFAULT_CAFE_ID,
+          ...parsed,
+          image,
+          updated_at: new Date().toISOString(),
+        };
 
     if (id) {
       const { error } = await supabase.from("menu_items").update(row).eq("id", id).eq("cafe_id", DEFAULT_CAFE_ID);
       if (error) return { ok: false as const, error: error.message };
     } else {
+      if (isPosMenuSync()) {
+        return { ok: false as const, error: "Operational menu is managed in POS. Sync, then edit photos or ratings here." };
+      }
       const { count } = await supabase
         .from("menu_items")
         .select("id", { count: "exact", head: true })
         .eq("cafe_id", DEFAULT_CAFE_ID);
       const { error } = await supabase.from("menu_items").insert({
-        ...row,
+        cafe_id: DEFAULT_CAFE_ID,
+        ...parsed,
+        image,
         sort_order: (count ?? 0) + 1,
+        updated_at: new Date().toISOString(),
       });
       if (error) return { ok: false as const, error: error.message };
     }
@@ -106,6 +120,9 @@ export async function saveMenuItem(formData: FormData) {
 
 export async function deleteMenuItem(id: string) {
   await requireAdmin();
+  if (isPosMenuSync()) {
+    return { ok: false as const, error: "Dishes are managed in POS. Hide them there, then sync." };
+  }
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
     return { ok: false as const, error: "Invalid dish id" };
   }

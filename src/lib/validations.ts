@@ -43,4 +43,5 @@ export const settingsSchema = z.object({
       "Must be a Google Maps / review URL"
     ),
   table_count: z.number().int().min(1).max(200),
+  table_map: z.string().max(2000).optional(),
 });
