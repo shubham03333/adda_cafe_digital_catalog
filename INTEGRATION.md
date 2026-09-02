@@ -12,8 +12,8 @@ Catalog cron/admin → GET POS /api/integrations/menu → upsert Supabase menu_i
 Customer /menu → Supabase only (0 TiDB requests)
 ```
 
-- Interval: Vercel cron every 15 minutes (`/api/cron/menu-sync`) with `CRON_SECRET`.
-- Manual: Admin → Menu → Sync menu from POS.
+- Interval: once per day at 02:00 UTC (Vercel Hobby limit) via `/api/cron/menu-sync` with `CRON_SECRET`.
+- After a POS menu change, use Admin → Menu → Sync menu from POS. Do not rely on the daily cron for same-day updates.
 - `MENU_SYNC_MODE=pos` (default): hide create/delete; allow photo/rating/popular overrides.
 - `MENU_SYNC_MODE=local`: previous catalog editor.
 - If POS is down, `/menu` and `/review` keep using the last Supabase copy (or bundled fallback).

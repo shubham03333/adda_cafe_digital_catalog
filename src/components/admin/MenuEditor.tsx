@@ -81,7 +81,7 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
       <div className="space-y-4">
         <Card className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Operational menu is managed in POS; this is the customer display copy.
+            Operational menu is managed in POS; this is the customer display copy. Automatic sync runs once a day (Vercel Hobby). After you change the POS menu, tap Sync.
           </p>
           <p className="text-xs text-gray-500">
             Last synced: {lastSync ? `${minutesAgo(lastSync.created_at)}${lastSync.ok ? "" : " (failed)"}` : "never"}
