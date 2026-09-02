@@ -36,6 +36,7 @@ export async function saveSettings(formData: FormData) {
     cafe_name: String(formData.get("cafe_name") ?? ""),
     google_review_url: String(formData.get("google_review_url") ?? ""),
     table_count: Number(formData.get("table_count") ?? 10),
+    table_map: String(formData.get("table_map") ?? "").trim(),
   });
 
   if (!parsed.success) {
@@ -47,12 +48,26 @@ export async function saveSettings(formData: FormData) {
     redirect("/admin/settings?error=supabase");
   }
 
+  let tableMap: Record<string, string> = {};
+  if (parsed.data.table_map) {
+    try {
+      const raw = JSON.parse(parsed.data.table_map) as unknown;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        redirect("/admin/settings?error=1");
+      }
+      tableMap = raw as Record<string, string>;
+    } catch {
+      redirect("/admin/settings?error=1");
+    }
+  }
+
   await supabase.from("settings").upsert(
     {
       cafe_id: DEFAULT_CAFE_ID,
       cafe_name: parsed.data.cafe_name,
       google_review_url: parsed.data.google_review_url,
       table_count: parsed.data.table_count,
+      table_map: tableMap,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "cafe_id" }

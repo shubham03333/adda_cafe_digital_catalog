@@ -233,6 +233,7 @@ export const menuData = [
 
 export type Dish = {
   id: number | string;
+  posMenuItemId?: number | null;
   name: string;
   price: number;
   category: string;

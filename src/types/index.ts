@@ -7,7 +7,13 @@ export type AnalyticsEvent =
   | "copy_click"
   | "use_review"
   | "google_click"
-  | "review_selected";
+  | "review_selected"
+  | "menu_sync"
+  | "menu_sync_failed"
+  | "pos_api_error"
+  | "order_placed"
+  | "order_status_updated"
+  | "webhook_failed";
 
 export type ReviewSuggestion = {
   id: string;
