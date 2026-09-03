@@ -193,6 +193,81 @@ export async function getCustomerOrder(orderId: string) {
   return data;
 }
 
+export type GuestHistoryOrder = {
+  orderId: string;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  total: number;
+  tableNumber: number | null;
+  placedAt: string;
+  items: { name: string; quantity: number; price: number }[];
+};
+
+function parseOrderItems(raw: unknown) {
+  const items = Array.isArray(raw) ? raw : [];
+  return items
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as { name?: unknown; quantity?: unknown; price?: unknown };
+      const name = String(row.name || "").trim();
+      if (!name) return null;
+      return {
+        name,
+        quantity: Math.max(1, Number(row.quantity) || 1),
+        price: Number(row.price) || 0,
+      };
+    })
+    .filter((item): item is { name: string; quantity: number; price: number } => Boolean(item));
+}
+
+export async function getGuestOrderHistory(phone: string) {
+  const guestPhone = normalizePhone(phone);
+  if (!isValidPhone(guestPhone)) {
+    return { ok: false as const, error: "Enter a valid mobile number.", orders: [] as GuestHistoryOrder[] };
+  }
+
+  const supabase = createServiceSupabase();
+  if (!supabase) {
+    return { ok: true as const, orders: [] as GuestHistoryOrder[] };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("customer_orders")
+      .select(
+        "id, pos_order_number, status, payment_status, items, total, table_number, created_at, guest_phone"
+      )
+      .eq("cafe_id", DEFAULT_CAFE_ID)
+      .eq("guest_phone", guestPhone)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    if (error) {
+      // guest_phone column missing until 004 is applied
+      if (/guest_phone|column/i.test(error.message)) {
+        return { ok: true as const, orders: [] as GuestHistoryOrder[] };
+      }
+      return { ok: false as const, error: "Could not load your orders.", orders: [] as GuestHistoryOrder[] };
+    }
+
+    const orders: GuestHistoryOrder[] = (data || []).map((row) => ({
+      orderId: String(row.id),
+      orderNumber: String(row.pos_order_number || "—"),
+      status: String(row.status || "pending"),
+      paymentStatus: String(row.payment_status || "pending"),
+      total: Number(row.total) || 0,
+      tableNumber: row.table_number == null ? null : Number(row.table_number),
+      placedAt: String(row.created_at || new Date().toISOString()),
+      items: parseOrderItems(row.items),
+    }));
+
+    return { ok: true as const, orders };
+  } catch {
+    return { ok: false as const, error: "Could not load your orders.", orders: [] as GuestHistoryOrder[] };
+  }
+}
+
 export async function getSessionOrderedNames(sessionId: string, tableNumber?: number | null) {
   const supabase = createServiceSupabase();
   if (!supabase || !sessionId) return [] as string[];

@@ -5,13 +5,14 @@ import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { CafeShell } from "@/components/layout/CafeShell";
 import type { Dish } from "@/data/menuData";
-import { placeOrder } from "@/actions/order";
+import { getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
 import { buildCategoryRail, extrasLabel, isExtraCategory, type ItemExtras } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
 import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
 import { CustomizeSheet } from "@/components/order/CustomizeSheet";
 import { CartSheet } from "@/components/order/CartSheet";
+import { GuestOrdersSheet } from "@/components/order/GuestOrdersSheet";
 import { OrderSuccess, OrderTracker } from "@/components/order/OrderStatusScreens";
 import { appendPlacedOrder, readPlacedOrders, type SessionOrder } from "@/lib/order-session";
 import { GUEST_STORAGE_KEY, type GuestProfile } from "@/lib/guest-profile";
@@ -51,6 +52,10 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [placed, setPlaced] = useState<SessionOrder[]>([]);
   const [guest, setGuest] = useState<GuestProfile | null>(null);
   const [guestReady, setGuestReady] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [history, setHistory] = useState<GuestHistoryOrder[]>([]);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -63,6 +68,21 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
     }
     setGuestReady(true);
   }, [tableNumber]);
+
+  async function loadHistory(phone: string) {
+    setHistoryLoading(true);
+    setHistoryError(null);
+    const result = await getGuestOrderHistory(phone);
+    setHistory(result.orders);
+    if (!result.ok) setHistoryError(result.error);
+    setHistoryLoading(false);
+  }
+
+  function openHistory() {
+    if (!guest) return;
+    setHistoryOpen(true);
+    void loadHistory(guest.phone);
+  }
 
   const rail = useMemo(() => buildCategoryRail(dishes), [dishes]);
   const categoryChips = useMemo(
@@ -184,6 +204,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       setExtrasById({});
       setBagOpen(false);
       setScreen("success");
+      void loadHistory(guest.phone);
     });
   }
 
@@ -244,12 +265,18 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         onSearchOpen={setSearchOpen}
         onQuery={setQuery}
         onOpenCart={() => setBagOpen(true)}
+        onOpenOrders={openHistory}
       />
       <FilterChips options={categoryChips} value={category} onChange={setCategory} />
 
       {placed.length > 0 ? (
         <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-white p-3 shadow-sm">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Your orders this visit</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Your orders this visit</p>
+            <button type="button" className="text-xs font-bold text-gray-700" onClick={openHistory}>
+              All my orders
+            </button>
+          </div>
           <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto">
             {placed.map((order) => (
               <li key={`${order.orderNumber}-${order.placedAt}`}>
@@ -356,6 +383,27 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         }}
         onRemove={(dish) => setCount(dish, 0)}
         onPlace={submit}
+      />
+
+      <GuestOrdersSheet
+        open={historyOpen}
+        loading={historyLoading}
+        error={historyError}
+        orders={history}
+        guestName={guest?.name}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={(order) => {
+          setHistoryOpen(false);
+          setResult({
+            orderId: order.orderId,
+            orderNumber: order.orderNumber,
+            status: order.status,
+            total: order.total,
+            items: order.items,
+            placedAt: order.placedAt,
+          });
+          setScreen("track");
+        }}
       />
     </CafeShell>
   );
