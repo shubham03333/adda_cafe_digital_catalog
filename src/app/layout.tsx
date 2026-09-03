@@ -7,9 +7,28 @@ export const metadata: Metadata = {
   description: "Digital menu and Google review assistant for Adda Cafe.",
 };
 
+function supabaseOrigin() {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const storageOrigin = supabaseOrigin();
   return (
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
+      <head>
+        {storageOrigin ? (
+          <>
+            <link rel="preconnect" href={storageOrigin} />
+            <link rel="dns-prefetch" href={storageOrigin} />
+          </>
+        ) : null}
+      </head>
       <body className="antialiased">
         <RegisterSW />
         {children}

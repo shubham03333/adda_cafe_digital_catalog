@@ -1,21 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import type { Dish } from "@/data/menuData";
 import { isBestSeller, isVegDish, prepMinutes } from "@/lib/order-display";
 import { VegMark } from "@/components/order/VegMark";
-import { cn } from "@/lib/utils";
+import { MenuPhoto } from "@/components/order/MenuPhoto";
 
 type MenuItemCardProps = {
   dish: Dish;
   quantity: number;
   canOrder: boolean;
+  priority?: boolean;
   onAdd: () => void;
   onOpen: () => void;
 };
 
-export function MenuItemCard({ dish, quantity, canOrder, onAdd, onOpen }: MenuItemCardProps) {
-  const [loaded, setLoaded] = useState(false);
+export function MenuItemCard({ dish, quantity, canOrder, priority = false, onAdd, onOpen }: MenuItemCardProps) {
   const veg = isVegDish(dish);
   const mins = prepMinutes(dish);
 
@@ -23,14 +22,7 @@ export function MenuItemCard({ dish, quantity, canOrder, onAdd, onOpen }: MenuIt
     <article className="rounded-[20px] bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition active:scale-[0.99]">
       <button type="button" className="flex w-full gap-3 text-left" onClick={onOpen}>
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl bg-gray-100">
-          {!loaded ? <div className="absolute inset-0 animate-pulse bg-gray-100" /> : null}
-          <img
-            src={dish.image || "/adda.png"}
-            alt=""
-            className={cn("h-full w-full object-cover", loaded ? "opacity-100" : "opacity-0")}
-            onLoad={() => setLoaded(true)}
-            onError={() => setLoaded(true)}
-          />
+          <MenuPhoto src={dish.image} className="h-full w-full" priority={priority} />
           {dish.popular ? (
             <span className="absolute left-1 top-1 rounded-full bg-[#F5B400] px-1.5 py-0.5 text-[9px] font-black text-gray-900">
               Popular

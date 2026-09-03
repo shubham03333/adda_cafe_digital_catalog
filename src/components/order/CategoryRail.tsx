@@ -1,6 +1,7 @@
 "use client";
 
 import type { CategoryRailItem } from "@/lib/order-display";
+import { MenuPhoto } from "@/components/order/MenuPhoto";
 import { cn } from "@/lib/utils";
 
 type CategoryRailProps = {
@@ -12,7 +13,7 @@ type CategoryRailProps = {
 export function CategoryRail({ items, selected, onSelect }: CategoryRailProps) {
   return (
     <nav className="flex h-full min-h-0 w-[76px] shrink-0 flex-col gap-1 self-stretch overflow-y-auto overscroll-contain bg-[#F3F3F3] hide-scrollbar">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const active = selected === item.name;
         return (
           <button
@@ -25,7 +26,7 @@ export function CategoryRail({ items, selected, onSelect }: CategoryRailProps) {
             )}
           >
             {active ? <span className="absolute left-0 top-3 h-8 w-1 rounded-full bg-[#F5B400]" /> : null}
-            <img src={item.image} alt="" className="h-10 w-10 rounded-xl object-cover" />
+            <MenuPhoto src={item.image} className="h-10 w-10 rounded-xl" priority={index < 6} />
             <span className="mt-1 line-clamp-2 text-[10px] font-bold leading-tight text-gray-900">{item.name}</span>
             <span className="text-[10px] text-gray-400">{item.count}</span>
           </button>
