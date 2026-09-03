@@ -30,57 +30,60 @@ export function OrderHeader({
 }: OrderHeaderProps) {
   return (
     <header className="shrink-0 bg-white/95 backdrop-blur-xl">
-      <div className="flex items-center gap-3 px-3 py-3">
-        <img src="/adda.png" alt="" className="h-11 w-11 rounded-2xl object-cover shadow-sm" />
+      <div className="flex items-center gap-2 px-3 py-3">
+        <img src="/adda.png" alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover shadow-sm" />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-black tracking-tight text-gray-900">{CAFE_NAME}</h1>
-          <p className="text-xs font-medium text-gray-500">
-            Table {tableNumber || "—"}
-            {guestName ? ` · Hi, ${guestName}` : ""}
+          <p className="truncate text-xs font-medium text-gray-500">
+            {tableNumber ? `T${tableNumber}` : "—"}
+            {guestName ? ` · ${guestName}` : ""}
           </p>
         </div>
-        {onOpenOrders ? (
+        <div className="flex shrink-0 items-center gap-1.5">
+          {onOpenOrders ? (
+            <button
+              type="button"
+              onClick={onOpenOrders}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
+              aria-label="My orders"
+              title="My orders"
+            >
+              <ClipboardList className="h-5 w-5" />
+            </button>
+          ) : null}
+          <Link
+            href={`/t/${tableNumber}/review`}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
+            aria-label="Write a review"
+            title="Review"
+          >
+            <Star className="h-5 w-5 fill-[#F5B400] text-[#F5B400]" />
+          </Link>
           <button
             type="button"
-            onClick={onOpenOrders}
-            className="flex h-11 items-center gap-1 rounded-2xl bg-gray-50 px-3 text-sm font-bold text-gray-900"
-            aria-label="My orders"
+            className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
+            aria-label="Search menu"
+            onClick={() => onSearchOpen(!searchOpen)}
           >
-            <ClipboardList className="h-4 w-4 text-gray-700" />
-            Orders
+            {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </button>
-        ) : null}
-        <Link
-          href={`/t/${tableNumber}/review`}
-          className="flex h-11 items-center gap-1 rounded-2xl bg-gray-50 px-3 text-sm font-bold text-gray-900"
-        >
-          <Star className="h-4 w-4 fill-[#F5B400] text-[#F5B400]" />
-          Review
-        </Link>
-        <button
-          type="button"
-          className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
-          aria-label="Search menu"
-          onClick={() => onSearchOpen(!searchOpen)}
-        >
-          {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-        </button>
-        <button
-          type="button"
-          className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
-          aria-label="Open cart"
-          onClick={onOpenCart}
-        >
-          <ShoppingBag className="h-5 w-5" />
-          {itemCount > 0 ? (
-            <span
-              key={itemCount}
-              className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 animate-[pop_220ms_ease] items-center justify-center rounded-full bg-[#F5B400] px-1 text-[10px] font-black text-gray-900"
-            >
-              {itemCount}
-            </span>
-          ) : null}
-        </button>
+          <button
+            type="button"
+            className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
+            aria-label="Open cart"
+            onClick={onOpenCart}
+          >
+            <ShoppingBag className="h-5 w-5" />
+            {itemCount > 0 ? (
+              <span
+                key={itemCount}
+                className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 animate-[pop_220ms_ease] items-center justify-center rounded-full bg-[#F5B400] px-1 text-[10px] font-black text-gray-900"
+              >
+                {itemCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </div>
       {searchOpen ? (
         <div className="px-3 pb-3">
