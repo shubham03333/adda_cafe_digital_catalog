@@ -14,6 +14,8 @@ import { CustomizeSheet } from "@/components/order/CustomizeSheet";
 import { CartSheet } from "@/components/order/CartSheet";
 import { OrderSuccess, OrderTracker } from "@/components/order/OrderStatusScreens";
 import { appendPlacedOrder, readPlacedOrders, type SessionOrder } from "@/lib/order-session";
+import { GUEST_STORAGE_KEY, type GuestProfile } from "@/lib/guest-profile";
+import { GuestGate } from "@/components/order/GuestGate";
 import { cn } from "@/lib/utils";
 
 type OrderMenuProps = {
@@ -47,10 +49,19 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<SessionOrder | null>(null);
   const [placed, setPlaced] = useState<SessionOrder[]>([]);
+  const [guest, setGuest] = useState<GuestProfile | null>(null);
+  const [guestReady, setGuestReady] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     setPlaced(readPlacedOrders(tableNumber));
+    try {
+      const raw = sessionStorage.getItem(GUEST_STORAGE_KEY);
+      if (raw) setGuest(JSON.parse(raw) as GuestProfile);
+    } catch {
+      sessionStorage.removeItem(GUEST_STORAGE_KEY);
+    }
+    setGuestReady(true);
   }, [tableNumber]);
 
   const rail = useMemo(() => buildCategoryRail(dishes), [dishes]);
@@ -134,6 +145,11 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   function submit() {
     startTransition(async () => {
       setMessage(null);
+      if (!guest) {
+        setMessage("Enter your name and mobile to place an order.");
+        setBagOpen(true);
+        return;
+      }
       const placed = await placeOrder({
         tableNumber,
         items: posLines,
@@ -141,6 +157,8 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         sessionId: sessionId(),
         idempotencyKey: crypto.randomUUID(),
         notes: kitchenNotes || undefined,
+        customerName: guest.name,
+        customerPhone: guest.phone,
       });
       if (!placed.ok) {
         setMessage(placed.error);
@@ -207,10 +225,19 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
     );
   }
 
+  if (guestReady && !guest) {
+    return (
+      <CafeShell forceLight tone="order">
+        <GuestGate onReady={setGuest} />
+      </CafeShell>
+    );
+  }
+
   return (
     <CafeShell forceLight tone="order">
       <OrderHeader
         tableNumber={tableNumber}
+        guestName={guest?.name}
         itemCount={itemCount}
         searchOpen={searchOpen}
         query={query}
