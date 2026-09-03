@@ -49,10 +49,11 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceSupabase();
   if (supabase && payload.order_id) {
+    const cancelled = payload.event === "order.deleted" || payload.status === "cancelled";
     const { error } = await supabase
       .from("customer_orders")
       .update({
-        status: payload.status ?? undefined,
+        status: cancelled ? "cancelled" : payload.status ?? undefined,
         payment_status: payload.payment_status ?? undefined,
         pos_order_number: payload.order_number ?? undefined,
         updated_at: new Date().toISOString(),

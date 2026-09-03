@@ -105,6 +105,7 @@ export function isDrink(dish: Dish) {
 
 export function mapKitchenStatus(status: string) {
   const value = status.toLowerCase();
+  if (value === "cancelled" || value === "canceled" || value === "deleted") return -1;
   if (value === "served") return 3;
   if (value === "ready") return 2;
   if (value === "preparing" || value === "submitted") return 1;

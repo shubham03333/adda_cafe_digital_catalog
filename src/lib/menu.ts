@@ -59,7 +59,7 @@ async function seedIfEmpty() {
 export async function getLiveMenu(): Promise<Dish[]> {
   try {
     const supabase = createServiceSupabase();
-    if (!supabase) return menuData;
+    if (!supabase) return isPosMenuSync() ? [] : menuData;
     await seedIfEmpty();
     const { data, error } = await supabase
       .from("menu_items")
@@ -67,10 +67,21 @@ export async function getLiveMenu(): Promise<Dish[]> {
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .eq("available", true)
       .order("sort_order", { ascending: true });
-    if (error || !data?.length) return menuData;
-    return data.map(mapRow);
+    if (error) return isPosMenuSync() ? [] : menuData;
+    if (!data?.length) return isPosMenuSync() ? [] : menuData;
+
+    const mapped = data.map(mapRow);
+    if (!isPosMenuSync()) return mapped;
+
+    const unique = new Map<number, Dish>();
+    for (const dish of mapped) {
+      const posId = Number(dish.posMenuItemId);
+      if (!Number.isInteger(posId) || posId < 1) continue;
+      if (!unique.has(posId)) unique.set(posId, dish);
+    }
+    return [...unique.values()];
   } catch {
-    return menuData;
+    return isPosMenuSync() ? [] : menuData;
   }
 }
 
@@ -89,11 +100,13 @@ export async function getAdminMenu(): Promise<(Dish & { available: boolean; sort
     if (error || !data) {
       return menuData.map((dish, index) => ({ ...dish, available: true, sort_order: index + 1 }));
     }
-    return data.map((row) => ({
-      ...mapRow(row as MenuRow),
-      available: row.available,
-      sort_order: row.sort_order,
-    }));
+    return data
+      .filter((row) => !isPosMenuSync() || row.pos_menu_item_id)
+      .map((row) => ({
+        ...mapRow(row as MenuRow),
+        available: row.available,
+        sort_order: row.sort_order,
+      }));
   } catch {
     return menuData.map((dish, index) => ({ ...dish, available: true, sort_order: index + 1 }));
   }

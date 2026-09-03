@@ -148,9 +148,7 @@ export async function getCustomerOrder(orderId: string) {
     .maybeSingle();
   if (!data) return null;
 
-  const updatedAt = data.updated_at ? new Date(data.updated_at).getTime() : 0;
-  const stale = Date.now() - updatedAt > 30_000;
-  if (stale && data.pos_order_id && posConfigured()) {
+  if (data.pos_order_id && posConfigured() && data.status !== "cancelled") {
     try {
       const remote = await getOrderStatus(data.pos_order_id);
       await supabase
@@ -162,7 +160,14 @@ export async function getCustomerOrder(orderId: string) {
         })
         .eq("id", data.id);
       return { ...data, status: remote.status, payment_status: remote.payment_status };
-    } catch {
+    } catch (error) {
+      if (error instanceof PosApiError && error.status === 404) {
+        await supabase
+          .from("customer_orders")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", data.id);
+        return { ...data, status: "cancelled" };
+      }
       return data;
     }
   }

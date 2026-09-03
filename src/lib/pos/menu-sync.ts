@@ -91,7 +91,7 @@ export async function syncMenuFromPos(): Promise<MenuSyncResult> {
         available: Boolean(item.is_available),
         sort_order: item.position ?? 0,
         updated_at: syncedAt,
-        image: item.image_url || current?.image || "",
+        image: current?.image || "",
         rating: current?.rating ?? 4,
         popular: current?.popular ?? false,
       };
@@ -103,6 +103,21 @@ export async function syncMenuFromPos(): Promise<MenuSyncResult> {
         const { error } = await supabase.from("menu_items").insert(row);
         if (error) throw new Error(error.message);
       }
+    }
+
+    const posIds = items.map((item) => Number(item.id)).filter((id) => Number.isInteger(id) && id > 0);
+    await supabase
+      .from("menu_items")
+      .update({ available: false, updated_at: syncedAt })
+      .eq("cafe_id", DEFAULT_CAFE_ID)
+      .is("pos_menu_item_id", null);
+    if (posIds.length) {
+      await supabase
+        .from("menu_items")
+        .update({ available: false, updated_at: syncedAt })
+        .eq("cafe_id", DEFAULT_CAFE_ID)
+        .not("pos_menu_item_id", "is", null)
+        .not("pos_menu_item_id", "in", `(${posIds.join(",")})`);
     }
 
     const message = `Synced ${items.length} dishes from POS`;
