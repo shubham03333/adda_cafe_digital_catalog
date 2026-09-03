@@ -6,7 +6,7 @@ import { ShoppingBag } from "lucide-react";
 import { CafeShell } from "@/components/layout/CafeShell";
 import type { Dish } from "@/data/menuData";
 import { getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
-import { buildCategoryRail, extrasLabel, isExtraCategory, type ItemExtras } from "@/lib/order-display";
+import { buildCategoryRail, extrasLabel, findExtraCheeseDish, isExtraCategory, lineItemTotal, type ItemExtras } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
 import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
@@ -141,16 +141,29 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   }, [dishes, qty, extrasById]);
 
   const itemCount = bagItems.reduce((sum, row) => sum + row.quantity, 0);
-  const total = bagItems.reduce((sum, row) => sum + row.dish.price * row.quantity, 0);
+  const total = bagItems.reduce((sum, row) => sum + lineItemTotal(row.dish, row.quantity, row.extras, dishes), 0);
 
-  const posLines = bagItems
-    .filter((row) => row.dish.posMenuItemId)
-    .map((row) => ({
-      id: row.dish.posMenuItemId as number,
-      name: row.dish.name,
-      price: row.dish.price,
-      quantity: row.quantity,
-    }));
+  const extraCheeseDish = findExtraCheeseDish(dishes);
+  const posLines = bagItems.flatMap((row) => {
+    if (!row.dish.posMenuItemId) return [];
+    const lines = [
+      {
+        id: row.dish.posMenuItemId as number,
+        name: row.dish.name,
+        price: row.dish.price,
+        quantity: row.quantity,
+      },
+    ];
+    if (row.extras?.extraCheese && extraCheeseDish?.posMenuItemId) {
+      lines.push({
+        id: extraCheeseDish.posMenuItemId,
+        name: extraCheeseDish.name,
+        price: Number(extraCheeseDish.price),
+        quantity: row.quantity,
+      });
+    }
+    return lines;
+  });
 
   const kitchenNotes = bagItems
     .map((row) => {
@@ -193,7 +206,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         items: bagItems.map((row) => ({
           name: row.dish.name,
           quantity: row.quantity,
-          price: row.dish.price,
+          price: lineItemTotal(row.dish, 1, row.extras, dishes),
           extras: extrasLabel(row.extras) || undefined,
         })),
         placedAt: new Date().toISOString(),
@@ -358,6 +371,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       {detail ? (
         <CustomizeSheet
           dish={detail}
+          dishes={dishes}
           quantity={draftQty}
           extras={draftExtras}
           canOrder={orderingEnabled && Boolean(detail.posMenuItemId)}
@@ -371,6 +385,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       <CartSheet
         open={bagOpen}
         items={bagItems}
+        dishes={dishes}
         total={total}
         pending={pending}
         error={message}

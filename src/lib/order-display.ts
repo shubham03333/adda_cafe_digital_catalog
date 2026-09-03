@@ -49,13 +49,41 @@ export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
 
 export type ItemExtras = {
   note: string;
-  sugar?: string;
-  ice?: string;
+  extraCheese?: boolean;
 };
+
+export const EXTRA_CHEESE_PRICE = 10;
+
+export function isRoll(dish: Dish) {
+  return /roll/i.test(dish.name);
+}
+
+export function findExtraCheeseDish(dishes: Dish[]) {
+  return dishes.find(
+    (dish) =>
+      /x-?tra\s*cheese|extra\s*cheese/i.test(dish.name) ||
+      (isExtraCategory(dish.category) && /cheese/i.test(dish.name))
+  );
+}
+
+export function extraCheesePrice(dishes: Dish[]) {
+  const topping = findExtraCheeseDish(dishes);
+  return topping ? Number(topping.price) || EXTRA_CHEESE_PRICE : EXTRA_CHEESE_PRICE;
+}
+
+export function lineItemUnitPrice(dish: Dish, extras?: ItemExtras, dishes?: Dish[]) {
+  const base = dish.price;
+  if (!extras?.extraCheese || !isRoll(dish)) return base;
+  return base + (dishes ? extraCheesePrice(dishes) : EXTRA_CHEESE_PRICE);
+}
+
+export function lineItemTotal(dish: Dish, quantity: number, extras?: ItemExtras, dishes?: Dish[]) {
+  return lineItemUnitPrice(dish, extras, dishes) * Math.max(1, quantity);
+}
 
 export function extrasLabel(extras?: ItemExtras) {
   if (!extras) return "";
-  const bits = [extras.sugar && `Sugar: ${extras.sugar}`, extras.ice && `Ice: ${extras.ice}`, extras.note].filter(Boolean);
+  const bits = [extras.extraCheese ? "Extra cheese" : "", extras.note].filter(Boolean);
   return bits.join(" · ");
 }
 

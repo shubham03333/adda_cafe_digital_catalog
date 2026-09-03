@@ -76,11 +76,11 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             {pending ? "Saving…" : "Continue"}
           </button>
           <p className="text-center text-sm text-gray-500">
-            <button type="button" className="font-bold text-gray-900" onClick={() => setMode("signup")}>
+            <button type="button" className="font-bold text-blue-600" onClick={() => setMode("signup")}>
               Create account with email
             </button>
             {" · "}
-            <button type="button" className="font-bold text-gray-900" onClick={() => setMode("login")}>
+            <button type="button" className="font-bold text-blue-600" onClick={() => setMode("login")}>
               Email login
             </button>
           </p>
@@ -141,7 +141,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             {pending ? "Signing in…" : "Sign in"}
           </button>
           <p className="text-center text-sm">
-            <button type="button" className="font-bold text-gray-900" onClick={() => setMode("forgot")}>
+            <button type="button" className="font-bold text-blue-600" onClick={() => setMode("forgot")}>
               Forgot password
             </button>
           </p>

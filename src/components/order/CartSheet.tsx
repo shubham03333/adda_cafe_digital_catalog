@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Pencil, Trash2, X } from "lucide-react";
 import type { Dish } from "@/data/menuData";
-import { extrasLabel, type ItemExtras } from "@/lib/order-display";
+import { extrasLabel, lineItemTotal, type ItemExtras } from "@/lib/order-display";
 import { QtyStepper } from "@/components/order/QtyStepper";
 import { EmptyState } from "@/components/order/MenuItemCard";
 import { SheetPortal } from "@/components/order/SheetPortal";
@@ -14,6 +14,7 @@ type BagRow = { dish: Dish; quantity: number; extras?: ItemExtras };
 type CartSheetProps = {
   open: boolean;
   items: BagRow[];
+  dishes: Dish[];
   total: number;
   pending: boolean;
   error: string | null;
@@ -28,6 +29,7 @@ type CartSheetProps = {
 export function CartSheet({
   open,
   items,
+  dishes,
   total,
   pending,
   error,
@@ -74,7 +76,9 @@ export function CartSheet({
                               <p className="mt-1 text-xs text-gray-600">{extrasLabel(extras)}</p>
                             </details>
                           ) : null}
-                          <p className="mt-1 text-sm font-black text-gray-900">₹{dish.price * quantity}</p>
+                          <p className="mt-1 text-sm font-black text-gray-900">
+                            ₹{lineItemTotal(dish, quantity, extras, dishes)}
+                          </p>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-between">
