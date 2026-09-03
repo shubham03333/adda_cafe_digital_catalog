@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, ShoppingBag, Star, X } from "lucide-react";
+import { ClipboardList, Search, ShoppingBag, Star, X } from "lucide-react";
 import { CAFE_NAME } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ type OrderHeaderProps = {
   onSearchOpen: (open: boolean) => void;
   onQuery: (value: string) => void;
   onOpenCart: () => void;
+  onOpenOrders?: () => void;
 };
 
 export function OrderHeader({
@@ -25,6 +26,7 @@ export function OrderHeader({
   onSearchOpen,
   onQuery,
   onOpenCart,
+  onOpenOrders,
 }: OrderHeaderProps) {
   return (
     <header className="shrink-0 bg-white/95 backdrop-blur-xl">
@@ -37,6 +39,17 @@ export function OrderHeader({
             {guestName ? ` · Hi, ${guestName}` : ""}
           </p>
         </div>
+        {onOpenOrders ? (
+          <button
+            type="button"
+            onClick={onOpenOrders}
+            className="flex h-11 items-center gap-1 rounded-2xl bg-gray-50 px-3 text-sm font-bold text-gray-900"
+            aria-label="My orders"
+          >
+            <ClipboardList className="h-4 w-4 text-gray-700" />
+            Orders
+          </button>
+        ) : null}
         <Link
           href={`/t/${tableNumber}/review`}
           className="flex h-11 items-center gap-1 rounded-2xl bg-gray-50 px-3 text-sm font-bold text-gray-900"
