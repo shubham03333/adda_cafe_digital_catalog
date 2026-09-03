@@ -163,6 +163,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         <OrderSuccess
           orderNumber={result.orderNumber}
           tableNumber={tableNumber}
+          status={result.status}
           onContinue={() => {
             setResult(null);
             setScreen("menu");

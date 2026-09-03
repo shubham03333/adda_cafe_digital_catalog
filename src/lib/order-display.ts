@@ -70,7 +70,8 @@ export function mapKitchenStatus(status: string) {
   if (value === "served") return 3;
   if (value === "ready") return 2;
   if (value === "preparing" || value === "submitted") return 1;
+  if (value === "pending") return 0;
   return 0;
 }
 
-export const TRACK_STEPS = ["Order received", "Preparing", "Ready", "Served"] as const;
+export const TRACK_STEPS = ["Waiting for staff", "Preparing", "Ready", "Served"] as const;
