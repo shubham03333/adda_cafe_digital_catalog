@@ -17,17 +17,23 @@ type MenuRow = {
   sort_order: number;
 };
 
+function safeImage(image: string | null | undefined) {
+  const value = (image || "").trim();
+  if (!value || value.startsWith("data:") || value.startsWith("blob:")) return "/adda.png";
+  return value;
+}
+
 function mapRow(row: MenuRow): Dish {
   return {
-    id: row.id,
+    id: String(row.id),
     posMenuItemId: row.pos_menu_item_id ?? null,
     name: row.name,
     description: row.description ?? "",
-    price: Number(row.price),
-    category: row.category,
-    rating: Number(row.rating),
-    popular: row.popular,
-    image: row.image || "/adda.png",
+    price: Number(row.price) || 0,
+    category: row.category || "Main Course",
+    rating: Number(row.rating) || 0,
+    popular: Boolean(row.popular),
+    image: safeImage(row.image),
   };
 }
 

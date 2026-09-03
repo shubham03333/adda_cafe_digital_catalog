@@ -55,7 +55,13 @@ export async function getLastMenuSync() {
     .limit(1)
     .maybeSingle();
   if (error) return null;
-  return data;
+  if (!data) return null;
+  return {
+    ok: Boolean(data.ok),
+    message: data.message == null ? null : String(data.message),
+    item_count: data.item_count == null ? null : Number(data.item_count),
+    created_at: data.created_at ? new Date(data.created_at).toISOString() : new Date().toISOString(),
+  };
 }
 
 export async function syncMenuFromPos(): Promise<MenuSyncResult> {

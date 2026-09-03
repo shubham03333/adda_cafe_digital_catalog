@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { deleteMenuItem, saveMenuItem } from "@/actions/menu";
 import { triggerMenuSync } from "@/actions/sync";
@@ -30,18 +30,23 @@ const emptyForm = {
   image: "",
 };
 
-function minutesAgo(iso: string) {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 1) return "just now";
-  return `${mins} min ago`;
-}
-
 export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
   const [form, setForm] = useState(emptyForm);
   const [preview, setPreview] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [syncLabel, setSyncLabel] = useState(lastSync ? "synced" : "never");
   const router = useRouter();
+
+  useEffect(() => {
+    if (!lastSync?.created_at) {
+      setSyncLabel("never");
+      return;
+    }
+    const mins = Math.max(0, Math.round((Date.now() - new Date(lastSync.created_at).getTime()) / 60000));
+    const when = mins < 1 ? "just now" : `${mins} min ago`;
+    setSyncLabel(`${when}${lastSync.ok ? "" : " (failed)"}`);
+  }, [lastSync]);
 
   const categoryChoices = useMemo(() => {
     const extras = items.map((item) => item.category).filter((name) => name && name !== "All");
@@ -88,8 +93,8 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Operational menu comes from POS only. Upload photos here — POS images are not used. Automatic sync runs once a day; tap Sync after POS menu changes.
           </p>
-          <p className="text-xs text-gray-500">
-            Last synced: {lastSync ? `${minutesAgo(lastSync.created_at)}${lastSync.ok ? "" : " (failed)"}` : "never"}
+          <p className="text-xs text-gray-500" suppressHydrationWarning>
+            Last synced: {syncLabel}
           </p>
           <Button
             type="button"
@@ -116,7 +121,9 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
           ) : (
             <form
               className="space-y-3"
-              action={(formData) => {
+              onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
                 startTransition(async () => {
                   try {
                     const photo = formData.get("photo");

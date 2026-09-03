@@ -98,7 +98,6 @@ export async function saveMenuItem(formData: FormData) {
     revalidatePath("/admin/menu");
     revalidatePath("/menu");
     revalidatePath("/review");
-    revalidatePath("/t", "layout");
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not save dish" };
