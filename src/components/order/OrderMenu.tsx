@@ -14,6 +14,7 @@ import { CustomizeSheet } from "@/components/order/CustomizeSheet";
 import { CartSheet } from "@/components/order/CartSheet";
 import { OrderSuccess, OrderTracker } from "@/components/order/OrderStatusScreens";
 import { appendPlacedOrder, readPlacedOrders, type SessionOrder } from "@/lib/order-session";
+import { cn } from "@/lib/utils";
 
 type OrderMenuProps = {
   tableNumber: number;
