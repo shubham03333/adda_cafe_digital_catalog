@@ -92,7 +92,7 @@ export function OrderHeader({
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             placeholder="Search dishes, coffee, combos..."
-            className="h-12 w-full rounded-2xl border border-gray-100 bg-[#FAFAFA] px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#F5B400] focus:outline-none"
+            className="h-12 w-full rounded-2xl border border-gray-100 bg-[#FAFAFA] px-4 text-base text-gray-900 placeholder:text-gray-400 focus:border-[#F5B400] focus:outline-none"
           />
         </div>
       ) : null}
