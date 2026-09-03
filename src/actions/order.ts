@@ -7,6 +7,7 @@ import { isOrderingEnabled, posConfigured } from "@/lib/pos/config";
 import { getOrderStatus, submitOrderToPos } from "@/lib/pos/order-client";
 import { resolvePosTableCode } from "@/lib/pos/table-map";
 import { PosApiError } from "@/lib/pos/client";
+import { isValidPhone, normalizePhone } from "@/lib/guest-crypto";
 
 type CartItem = {
   id: number;
@@ -22,6 +23,8 @@ export async function placeOrder(input: {
   sessionId: string;
   idempotencyKey: string;
   notes?: string;
+  customerName?: string;
+  customerPhone?: string;
 }) {
   if (!isOrderingEnabled()) {
     return { ok: false as const, error: "Ordering is not enabled yet." };
@@ -34,6 +37,14 @@ export async function placeOrder(input: {
   }
   if (!input.items.length) {
     return { ok: false as const, error: "Add at least one dish." };
+  }
+  const customerName = String(input.customerName || "").trim();
+  const customerPhone = normalizePhone(input.customerPhone || "");
+  if (customerName.length < 2) {
+    return { ok: false as const, error: "Enter your name before placing an order." };
+  }
+  if (!isValidPhone(customerPhone)) {
+    return { ok: false as const, error: "Enter a valid mobile number before placing an order." };
   }
 
   const supabase = createServiceSupabase();
@@ -52,6 +63,8 @@ export async function placeOrder(input: {
     items: input.items,
     total: Number(computed.toFixed(2)),
     session_id: input.sessionId,
+    guest_name: customerName,
+    guest_phone: customerPhone,
     updated_at: new Date().toISOString(),
   };
 
@@ -72,7 +85,11 @@ export async function placeOrder(input: {
       };
     }
     if (!existing) {
-      await supabase.from("customer_orders").insert(local);
+      const { error } = await supabase.from("customer_orders").insert(local);
+      if (error) {
+        const { guest_name: _n, guest_phone: _p, ...withoutGuest } = local;
+        await supabase.from("customer_orders").insert(withoutGuest);
+      }
     }
   }
 
@@ -85,6 +102,8 @@ export async function placeOrder(input: {
       items: input.items,
       total: Number(computed.toFixed(2)),
       customer_ref: input.sessionId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
       notes: input.notes?.trim() || undefined,
     });
 

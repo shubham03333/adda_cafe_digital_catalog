@@ -1,11 +1,13 @@
 "use client";
 
-import { Search, ShoppingBag, X } from "lucide-react";
+import Link from "next/link";
+import { Search, ShoppingBag, Star, X } from "lucide-react";
 import { CAFE_NAME } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 
 type OrderHeaderProps = {
   tableNumber: number;
+  guestName?: string;
   itemCount: number;
   searchOpen: boolean;
   query: string;
@@ -16,6 +18,7 @@ type OrderHeaderProps = {
 
 export function OrderHeader({
   tableNumber,
+  guestName,
   itemCount,
   searchOpen,
   query,
@@ -29,8 +32,18 @@ export function OrderHeader({
         <img src="/adda.png" alt="" className="h-11 w-11 rounded-2xl object-cover shadow-sm" />
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-black tracking-tight text-gray-900">{CAFE_NAME}</h1>
-          <p className="text-xs font-medium text-gray-500">Table {tableNumber || "—"}</p>
+          <p className="text-xs font-medium text-gray-500">
+            Table {tableNumber || "—"}
+            {guestName ? ` · Hi, ${guestName}` : ""}
+          </p>
         </div>
+        <Link
+          href={`/t/${tableNumber}/review`}
+          className="flex h-11 items-center gap-1 rounded-2xl bg-gray-50 px-3 text-sm font-bold text-gray-900"
+        >
+          <Star className="h-4 w-4 fill-[#F5B400] text-[#F5B400]" />
+          Review
+        </Link>
         <button
           type="button"
           className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
