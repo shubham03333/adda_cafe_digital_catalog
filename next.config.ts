@@ -10,10 +10,15 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.0.3", ...extraDevOrigins],
   poweredByHeader: false,
   outputFileTracingRoot: path.join(__dirname),
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "*.supabase.co" },
+      { protocol: "https", hostname: "**.supabase.co" },
     ],
   },
   async headers() {

@@ -73,6 +73,11 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
 
   function onPhoto(file: File | undefined) {
     if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage("Photo must be under 4MB. Compress it or pick a smaller JPEG/PNG.");
+      return;
+    }
+    setMessage(null);
     setPreview(URL.createObjectURL(file));
   }
 
@@ -113,30 +118,56 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
               className="space-y-3"
               action={(formData) => {
                 startTransition(async () => {
-                  const result = await saveMenuItem(formData);
-                  if (!result.ok) {
-                    setMessage(result.error);
-                    return;
+                  try {
+                    const photo = formData.get("photo");
+                    const file = photo instanceof File && photo.size > 0 ? photo : null;
+                    if (file) {
+                      const upload = new FormData();
+                      upload.append("photo", file);
+                      const response = await fetch("/api/admin/menu-photo", { method: "POST", body: upload });
+                      const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+                      if (!response.ok || !payload.url) {
+                        setMessage(payload.error || "Could not upload photo. Use a JPEG or PNG under 4MB.");
+                        return;
+                      }
+                      formData.set("image", payload.url);
+                      formData.delete("photo");
+                    }
+                    const result = await saveMenuItem(formData);
+                    if (!result.ok) {
+                      setMessage(result.error);
+                      return;
+                    }
+                    reset();
+                    router.refresh();
+                  } catch {
+                    setMessage("Could not save. Try a smaller JPEG or PNG under 4MB.");
                   }
-                  reset();
-                  router.refresh();
                 });
               }}
             >
               <input type="hidden" name="id" value={form.id} />
               <input type="hidden" name="image" value={form.image} />
+              {posMode ? (
+                <>
+                  <input type="hidden" name="name" value={form.name} />
+                  <input type="hidden" name="description" value={form.description} />
+                  <input type="hidden" name="price" value={form.price} />
+                  <input type="hidden" name="category" value={form.category} />
+                </>
+              ) : null}
               <label className="block text-sm font-semibold">
                 Name
-                <Input className="mt-1" name="name" required defaultValue={form.name} key={`name-${form.id}`} readOnly={posMode} />
+                  <Input className="mt-1" name={posMode ? undefined : "name"} required defaultValue={form.name} key={`name-${form.id}`} readOnly={posMode} />
               </label>
               <label className="block text-sm font-semibold">
                 Description
-                <Textarea className="mt-1 min-h-20" name="description" defaultValue={form.description} key={`desc-${form.id}`} readOnly={posMode} />
+                <Textarea className="mt-1 min-h-20" name={posMode ? undefined : "description"} defaultValue={form.description} key={`desc-${form.id}`} readOnly={posMode} />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-sm font-semibold">
                   Price (₹)
-                  <Input className="mt-1" name="price" type="number" min="0" step="1" required defaultValue={form.price} key={`price-${form.id}`} readOnly={posMode} />
+                  <Input className="mt-1" name={posMode ? undefined : "price"} type="number" min="0" step="1" required defaultValue={form.price} key={`price-${form.id}`} readOnly={posMode} />
                 </label>
                 <label className="block text-sm font-semibold">
                   Rating (0–5)
@@ -145,7 +176,7 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
               </div>
               <label className="block text-sm font-semibold">
                 Category
-                <Input className="mt-1" name="category" list="menu-categories" required defaultValue={form.category} key={`cat-${form.id}`} readOnly={posMode} />
+                <Input className="mt-1" name={posMode ? undefined : "category"} list="menu-categories" required defaultValue={form.category} key={`cat-${form.id}`} readOnly={posMode} />
                 <datalist id="menu-categories">
                   {categoryChoices.map((name) => (
                     <option key={name} value={name} />
@@ -158,7 +189,7 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
                   className="mt-1 block w-full text-sm"
                   type="file"
                   name="photo"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
                   onChange={(e) => onPhoto(e.target.files?.[0])}
                 />
               </label>

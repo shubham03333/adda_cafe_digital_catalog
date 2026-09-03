@@ -4,7 +4,14 @@ import { isPosMenuSync } from "@/lib/pos/config";
 import { getLastMenuSync } from "@/lib/pos/menu-sync";
 
 export default async function AdminMenuPage() {
-  const [items, lastSync] = await Promise.all([getAdminMenu(), getLastMenuSync()]);
+  let items: Awaited<ReturnType<typeof getAdminMenu>> = [];
+  let lastSync: Awaited<ReturnType<typeof getLastMenuSync>> = null;
+  try {
+    [items, lastSync] = await Promise.all([getAdminMenu(), getLastMenuSync()]);
+  } catch {
+    items = [];
+    lastSync = null;
+  }
 
   return (
     <div>

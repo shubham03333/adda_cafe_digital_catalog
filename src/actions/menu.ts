@@ -6,6 +6,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createServiceSupabase } from "@/lib/supabase/admin";
 import { DEFAULT_CAFE_ID } from "@/lib/utils";
 import { isPosMenuSync } from "@/lib/pos/config";
+import { uploadMenuPhoto } from "@/lib/menu-photo";
 
 async function requireAdmin() {
   if (!(await isAdminAuthenticated())) redirect("/staff");
@@ -33,24 +34,9 @@ function parseItem(formData: FormData) {
 
 async function uploadPhoto(file: File | null) {
   if (!file || file.size === 0) return null;
-  if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
-    throw new Error("Photo must be a JPEG, PNG, WebP, or GIF");
-  }
-  if (file.size > 4 * 1024 * 1024) {
-    throw new Error("Photo must be under 4MB");
-  }
-  const supabase = createServiceSupabase();
-  if (!supabase) throw new Error("Supabase is not configured");
-  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : file.type === "image/gif" ? "gif" : "jpg";
-  const path = `${DEFAULT_CAFE_ID}/${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const { error } = await supabase.storage.from("menu-photos").upload(path, buffer, {
-    contentType: file.type,
-    upsert: true,
-  });
-  if (error) throw new Error(error.message);
-  const { data } = supabase.storage.from("menu-photos").getPublicUrl(path);
-  return data.publicUrl;
+  const result = await uploadMenuPhoto(file);
+  if (!result.ok) throw new Error(result.error);
+  return result.url;
 }
 
 export async function saveMenuItem(formData: FormData) {
@@ -112,6 +98,7 @@ export async function saveMenuItem(formData: FormData) {
     revalidatePath("/admin/menu");
     revalidatePath("/menu");
     revalidatePath("/review");
+    revalidatePath("/t", "layout");
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not save dish" };
