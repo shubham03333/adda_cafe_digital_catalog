@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { CafeShell } from "@/components/layout/CafeShell";
@@ -13,6 +13,7 @@ import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
 import { CustomizeSheet } from "@/components/order/CustomizeSheet";
 import { CartSheet } from "@/components/order/CartSheet";
 import { OrderSuccess, OrderTracker } from "@/components/order/OrderStatusScreens";
+import { appendPlacedOrder, readPlacedOrders, type SessionOrder } from "@/lib/order-session";
 import { cn } from "@/lib/utils";
 
 type OrderMenuProps = {
@@ -44,12 +45,13 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [draftExtras, setDraftExtras] = useState<ItemExtras>(EMPTY_EXTRAS);
   const [screen, setScreen] = useState<"menu" | "success" | "track">("menu");
   const [message, setMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<{
-    orderId: string | null;
-    orderNumber: string;
-    status: string;
-  } | null>(null);
+  const [result, setResult] = useState<SessionOrder | null>(null);
+  const [placed, setPlaced] = useState<SessionOrder[]>([]);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setPlaced(readPlacedOrders(tableNumber));
+  }, [tableNumber]);
 
   const rail = useMemo(() => buildCategoryRail(dishes), [dishes]);
   const categoryChips = useMemo(
@@ -145,11 +147,21 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         setBagOpen(true);
         return;
       }
-      setResult({
+      const snapshot: SessionOrder = {
         orderId: placed.orderId ?? null,
         orderNumber: placed.orderNumber ?? "",
         status: placed.status,
-      });
+        total,
+        items: bagItems.map((row) => ({
+          name: row.dish.name,
+          quantity: row.quantity,
+          price: row.dish.price,
+          extras: extrasLabel(row.extras) || undefined,
+        })),
+        placedAt: new Date().toISOString(),
+      };
+      setPlaced(appendPlacedOrder(tableNumber, snapshot));
+      setResult(snapshot);
       setQty({});
       setExtrasById({});
       setBagOpen(false);
@@ -164,6 +176,8 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
           orderNumber={result.orderNumber}
           tableNumber={tableNumber}
           status={result.status}
+          items={result.items}
+          total={result.total}
           onContinue={() => {
             setResult(null);
             setScreen("menu");
@@ -182,6 +196,8 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
           orderNumber={result.orderNumber}
           status={result.status}
           tableNumber={tableNumber}
+          items={result.items}
+          total={result.total}
           onBackToMenu={() => {
             setResult(null);
             setScreen("menu");
@@ -203,6 +219,34 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         onOpenCart={() => setBagOpen(true)}
       />
       <FilterChips options={categoryChips} value={category} onChange={setCategory} />
+
+      {placed.length > 0 ? (
+        <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-white p-3 shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Your orders this visit</p>
+          <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto">
+            {placed.map((order) => (
+              <li key={`${order.orderNumber}-${order.placedAt}`}>
+                <button
+                  type="button"
+                  className="w-full rounded-2xl bg-[#FAFAFA] px-3 py-2 text-left"
+                  onClick={() => {
+                    setResult(order);
+                    setScreen("track");
+                  }}
+                >
+                  <span className="flex items-center justify-between text-sm font-black text-gray-900">
+                    <span>#{order.orderNumber}</span>
+                    <span>₹{order.total}</span>
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-gray-500">
+                    {order.items.map((item) => `${item.quantity}× ${item.name}`).join(" · ")}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {!orderingEnabled ? (
         <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-amber-50 p-4 text-sm text-gray-800">

@@ -5,19 +5,46 @@ import { Check } from "lucide-react";
 import { mapKitchenStatus, TRACK_STEPS } from "@/lib/order-display";
 import { getCustomerOrder } from "@/actions/order";
 import { cn } from "@/lib/utils";
+import type { SessionOrderItem } from "@/lib/order-session";
+
+function ItemList({ items, total }: { items: SessionOrderItem[]; total: number }) {
+  if (!items.length) return null;
+  return (
+    <div className="mt-6 w-full max-w-sm rounded-[20px] bg-white p-4 text-left shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-wide text-gray-400">You ordered</p>
+      <ul className="mt-2 space-y-2">
+        {items.map((item, index) => (
+          <li key={`${item.name}-${index}`} className="flex items-start justify-between gap-3 text-sm">
+            <span className="min-w-0 font-semibold text-gray-900">
+              {item.quantity}× {item.name}
+              {item.extras ? <span className="mt-0.5 block text-xs font-medium text-gray-500">{item.extras}</span> : null}
+            </span>
+            <span className="shrink-0 font-black text-gray-900">₹{item.price * item.quantity}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 flex justify-between border-t border-gray-100 pt-3 text-sm font-black text-gray-900">
+        <span>Total</span>
+        <span>₹{total}</span>
+      </p>
+    </div>
+  );
+}
 
 type SuccessProps = {
   orderNumber: string;
   tableNumber: number;
   status?: string;
+  items?: SessionOrderItem[];
+  total?: number;
   onContinue: () => void;
   onTrack: () => void;
 };
 
-export function OrderSuccess({ orderNumber, tableNumber, status, onContinue, onTrack }: SuccessProps) {
+export function OrderSuccess({ orderNumber, tableNumber, status, items = [], total = 0, onContinue, onTrack }: SuccessProps) {
   const waiting = (status || "").toLowerCase() === "pending";
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#FAFAFA] px-6 text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#FAFAFA] px-6 py-8 text-center">
       <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
         <Check className="h-10 w-10 text-emerald-700" strokeWidth={2.5} />
       </div>
@@ -29,6 +56,7 @@ export function OrderSuccess({ orderNumber, tableNumber, status, onContinue, onT
           ? "Staff will confirm this order at the counter. The kitchen starts after they accept."
           : "Your order has been sent to the kitchen. Estimated prep 8–12 min."}
       </p>
+      <ItemList items={items} total={total} />
       <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
         <button type="button" onClick={onTrack} className="min-h-14 rounded-full bg-[#F5B400] text-base font-black text-gray-900">
           Track order
@@ -46,10 +74,12 @@ type TrackerProps = {
   orderNumber: string;
   status: string;
   tableNumber: number;
+  items?: SessionOrderItem[];
+  total?: number;
   onBackToMenu: () => void;
 };
 
-export function OrderTracker({ orderId, orderNumber, status, tableNumber, onBackToMenu }: TrackerProps) {
+export function OrderTracker({ orderId, orderNumber, status, tableNumber, items = [], total = 0, onBackToMenu }: TrackerProps) {
   const [liveStatus, setLiveStatus] = useState(status);
   const [minutes, setMinutes] = useState(10);
 
@@ -107,6 +137,9 @@ export function OrderTracker({ orderId, orderNumber, status, tableNumber, onBack
               );
             })}
           </ol>
+          <div className="mx-auto max-w-sm">
+            <ItemList items={items} total={total} />
+          </div>
         </>
       )}
       <button type="button" onClick={onBackToMenu} className="mt-10 min-h-12 w-full rounded-full bg-white text-sm font-bold text-gray-900 shadow-sm">
