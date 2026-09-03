@@ -19,59 +19,20 @@ export function isBestSeller(dish: Dish) {
   return dish.popular || dish.rating >= 4.5;
 }
 
-export type QuickFilter =
-  | "all"
-  | "veg"
-  | "coffee"
-  | "tea"
-  | "snacks"
-  | "desserts"
-  | "popular"
-  | "new"
-  | "combo"
-  | "best";
-
-export const QUICK_FILTERS: { id: QuickFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "veg", label: "Veg" },
-  { id: "coffee", label: "Coffee" },
-  { id: "tea", label: "Tea" },
-  { id: "snacks", label: "Snacks" },
-  { id: "desserts", label: "Desserts" },
-  { id: "popular", label: "Top sellers" },
-  { id: "new", label: "New" },
-  { id: "combo", label: "Combo" },
-  { id: "best", label: "Best seller" },
-];
-
-function haystack(dish: Dish) {
-  return `${dish.name} ${dish.description} ${dish.category}`.toLowerCase();
-}
-
-export function matchesFilter(dish: Dish, filter: QuickFilter) {
-  if (filter === "all") return true;
-  if (filter === "veg") return isVegDish(dish);
-  if (filter === "popular") return dish.popular;
-  if (filter === "best") return isBestSeller(dish);
-  if (filter === "combo") return haystack(dish).includes("combo") || dish.category.toLowerCase().includes("platter");
-  if (filter === "coffee") return haystack(dish).includes("coffee");
-  if (filter === "tea") return haystack(dish).includes("tea");
-  if (filter === "snacks") return /fries|snack|roll|sandwich|bhel|burger/i.test(haystack(dish));
-  if (filter === "desserts") return /dessert|sweet|brownie|cake|ice cream/i.test(haystack(dish));
-  if (filter === "new") return typeof dish.id === "number" && dish.id >= 17;
-  return true;
-}
-
 export type CategoryRailItem = {
   name: string;
   count: number;
   image: string;
 };
 
+export function isExtraCategory(name: string) {
+  return /^top+ings?$/i.test(name.trim());
+}
+
 export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
   const map = new Map<string, CategoryRailItem>();
   for (const dish of dishes) {
-    if (dish.category === "Topping") continue;
+    if (isExtraCategory(dish.category)) continue;
     const current = map.get(dish.category);
     if (current) {
       current.count += 1;
@@ -83,7 +44,7 @@ export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
       });
     }
   }
-  return [{ name: "All", count: dishes.filter((d) => d.category !== "Topping").length, image: "/adda.png" }, ...map.values()];
+  return [{ name: "All", count: dishes.filter((d) => !isExtraCategory(d.category)).length, image: "/adda.png" }, ...map.values()];
 }
 
 export type ItemExtras = {
@@ -109,7 +70,8 @@ export function mapKitchenStatus(status: string) {
   if (value === "served") return 3;
   if (value === "ready") return 2;
   if (value === "preparing" || value === "submitted") return 1;
+  if (value === "pending") return 0;
   return 0;
 }
 
-export const TRACK_STEPS = ["Order received", "Preparing", "Ready", "Served"] as const;
+export const TRACK_STEPS = ["Waiting for staff", "Preparing", "Ready", "Served"] as const;

@@ -9,21 +9,25 @@ import { cn } from "@/lib/utils";
 type SuccessProps = {
   orderNumber: string;
   tableNumber: number;
+  status?: string;
   onContinue: () => void;
   onTrack: () => void;
 };
 
-export function OrderSuccess({ orderNumber, tableNumber, onContinue, onTrack }: SuccessProps) {
+export function OrderSuccess({ orderNumber, tableNumber, status, onContinue, onTrack }: SuccessProps) {
+  const waiting = (status || "").toLowerCase() === "pending";
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-[#FAFAFA] px-6 text-center">
       <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
         <Check className="h-10 w-10 text-emerald-700" strokeWidth={2.5} />
       </div>
       <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">Table {tableNumber}</p>
-      <h1 className="mt-2 text-3xl font-black text-gray-900">Order confirmed</h1>
+      <h1 className="mt-2 text-3xl font-black text-gray-900">{waiting ? "Sent to staff" : "Order confirmed"}</h1>
       <p className="mt-2 text-2xl font-black text-[#C99700]">#{orderNumber}</p>
       <p className="mt-3 max-w-xs text-sm leading-relaxed text-gray-500">
-        Your order has been sent to the kitchen. Estimated prep 8–12 min.
+        {waiting
+          ? "Staff will confirm this order at the counter. The kitchen starts after they accept."
+          : "Your order has been sent to the kitchen. Estimated prep 8–12 min."}
       </p>
       <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
         <button type="button" onClick={onTrack} className="min-h-14 rounded-full bg-[#F5B400] text-base font-black text-gray-900">
@@ -79,7 +83,13 @@ export function OrderTracker({ orderId, orderNumber, status, tableNumber, onBack
       ) : (
         <>
           <p className="mt-1 text-sm text-gray-500">
-            {step >= 3 ? "Enjoy your meal." : minutes > 0 ? `About ${minutes} min remaining` : "Almost ready"}
+            {liveStatus.toLowerCase() === "pending"
+              ? "Waiting for staff to confirm at the counter."
+              : step >= 3
+                ? "Enjoy your meal."
+                : minutes > 0
+                  ? `About ${minutes} min remaining`
+                  : "Almost ready"}
           </p>
           <ol className="mt-8 space-y-0">
             {TRACK_STEPS.map((label, index) => {

@@ -7,6 +7,7 @@ import { extrasLabel, type ItemExtras } from "@/lib/order-display";
 import { QtyStepper } from "@/components/order/QtyStepper";
 import { EmptyState } from "@/components/order/MenuItemCard";
 import { SheetPortal } from "@/components/order/SheetPortal";
+import { MenuPhoto } from "@/components/order/MenuPhoto";
 
 type BagRow = { dish: Dish; quantity: number; extras?: ItemExtras };
 
@@ -64,7 +65,7 @@ export function CartSheet({
                   {items.map(({ dish, quantity, extras }) => (
                     <li key={String(dish.id)} className="rounded-[20px] bg-[#FAFAFA] p-3 shadow-sm">
                       <div className="flex gap-3">
-                        <img src={dish.image || "/adda.png"} alt="" className="h-16 w-16 rounded-2xl object-cover" />
+                        <MenuPhoto src={dish.image} className="h-16 w-16 rounded-2xl" />
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-gray-900">{dish.name}</p>
                           {extrasLabel(extras) ? (

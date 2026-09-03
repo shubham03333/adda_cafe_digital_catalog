@@ -6,14 +6,7 @@ import { ShoppingBag } from "lucide-react";
 import { CafeShell } from "@/components/layout/CafeShell";
 import type { Dish } from "@/data/menuData";
 import { placeOrder } from "@/actions/order";
-import {
-  buildCategoryRail,
-  extrasLabel,
-  matchesFilter,
-  QUICK_FILTERS,
-  type ItemExtras,
-  type QuickFilter,
-} from "@/lib/order-display";
+import { buildCategoryRail, extrasLabel, isExtraCategory, type ItemExtras } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
 import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
@@ -43,7 +36,6 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [qty, setQty] = useState<Record<string, number>>({});
   const [extrasById, setExtrasById] = useState<Record<string, ItemExtras>>({});
   const [category, setCategory] = useState("All");
-  const [filter, setFilter] = useState<QuickFilter>("all");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [bagOpen, setBagOpen] = useState(false);
@@ -60,17 +52,20 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [pending, startTransition] = useTransition();
 
   const rail = useMemo(() => buildCategoryRail(dishes), [dishes]);
+  const categoryChips = useMemo(
+    () => rail.map((item) => ({ id: item.name, label: item.name })),
+    [rail]
+  );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return dishes.filter((dish) => {
-      if (dish.category === "Topping") return false;
+      if (isExtraCategory(dish.category)) return false;
       if (category !== "All" && dish.category !== category) return false;
-      if (!matchesFilter(dish, filter)) return false;
       if (!q) return true;
       return dish.name.toLowerCase().includes(q) || dish.description.toLowerCase().includes(q);
     });
-  }, [dishes, category, filter, query]);
+  }, [dishes, category, query]);
 
   function countOf(dish: Dish) {
     return qty[String(dish.id)] ?? 0;
@@ -168,6 +163,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         <OrderSuccess
           orderNumber={result.orderNumber}
           tableNumber={tableNumber}
+          status={result.status}
           onContinue={() => {
             setResult(null);
             setScreen("menu");
@@ -206,11 +202,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         onQuery={setQuery}
         onOpenCart={() => setBagOpen(true)}
       />
-      <FilterChips
-        options={QUICK_FILTERS}
-        value={filter}
-        onChange={(id) => setFilter(id as QuickFilter)}
-      />
+      <FilterChips options={categoryChips} value={category} onChange={setCategory} />
 
       {!orderingEnabled ? (
         <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-amber-50 p-4 text-sm text-gray-800">
@@ -225,12 +217,13 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         <CategoryRail items={rail} selected={category} onSelect={setCategory} />
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pt-1 hide-scrollbar">
           <div className="space-y-3 pb-4">
-          {visible.map((dish) => (
+          {visible.map((dish, index) => (
             <MenuItemCard
               key={String(dish.id)}
               dish={dish}
               quantity={countOf(dish)}
               canOrder={orderingEnabled && Boolean(dish.posMenuItemId)}
+              priority={index < 8}
               onAdd={() => openCustomize(dish)}
               onOpen={() => openCustomize(dish)}
             />
