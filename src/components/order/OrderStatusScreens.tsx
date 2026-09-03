@@ -65,30 +65,40 @@ export function OrderTracker({ orderId, orderNumber, status, tableNumber, onBack
   }, [orderId]);
 
   const step = mapKitchenStatus(liveStatus);
+  const cancelled = step < 0;
 
   return (
     <div className="min-h-dvh bg-[#FAFAFA] px-5 py-8">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">Table {tableNumber}</p>
       <h1 className="mt-2 text-2xl font-black text-gray-900">Order #{orderNumber}</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        {step >= 3 ? "Enjoy your meal." : minutes > 0 ? `About ${minutes} min remaining` : "Almost ready"}
-      </p>
-      <ol className="mt-8 space-y-0">
-        {TRACK_STEPS.map((label, index) => {
-          const done = index <= step;
-          return (
-            <li key={label} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-xs font-black", done ? "bg-[#F5B400] text-gray-900" : "bg-gray-200 text-gray-400")}>
-                  {index + 1}
-                </span>
-                {index < TRACK_STEPS.length - 1 ? <span className={cn("h-8 w-0.5", index < step ? "bg-[#F5B400]" : "bg-gray-200")} /> : null}
-              </div>
-              <p className={cn("pt-1.5 text-sm font-bold", done ? "text-gray-900" : "text-gray-400")}>{label}</p>
-            </li>
-          );
-        })}
-      </ol>
+      {cancelled ? (
+        <div className="mt-8 rounded-[24px] bg-white p-6 text-center shadow-sm">
+          <p className="text-lg font-black text-gray-900">This order was cancelled</p>
+          <p className="mt-2 text-sm text-gray-500">The kitchen removed it. You can place a new order from the menu.</p>
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-sm text-gray-500">
+            {step >= 3 ? "Enjoy your meal." : minutes > 0 ? `About ${minutes} min remaining` : "Almost ready"}
+          </p>
+          <ol className="mt-8 space-y-0">
+            {TRACK_STEPS.map((label, index) => {
+              const done = index <= step;
+              return (
+                <li key={label} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <span className={cn("flex h-8 w-8 items-center justify-center rounded-full text-xs font-black", done ? "bg-[#F5B400] text-gray-900" : "bg-gray-200 text-gray-400")}>
+                      {index + 1}
+                    </span>
+                    {index < TRACK_STEPS.length - 1 ? <span className={cn("h-8 w-0.5", index < step ? "bg-[#F5B400]" : "bg-gray-200")} /> : null}
+                  </div>
+                  <p className={cn("pt-1.5 text-sm font-bold", done ? "text-gray-900" : "text-gray-400")}>{label}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
       <button type="button" onClick={onBackToMenu} className="mt-10 min-h-12 w-full rounded-full bg-white text-sm font-bold text-gray-900 shadow-sm">
         Back to menu
       </button>

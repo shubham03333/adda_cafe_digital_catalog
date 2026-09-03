@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { deleteMenuItem, saveMenuItem } from "@/actions/menu";
 import { triggerMenuSync } from "@/actions/sync";
@@ -30,18 +30,23 @@ const emptyForm = {
   image: "",
 };
 
-function minutesAgo(iso: string) {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (mins < 1) return "just now";
-  return `${mins} min ago`;
-}
-
 export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
   const [form, setForm] = useState(emptyForm);
   const [preview, setPreview] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [syncLabel, setSyncLabel] = useState(lastSync ? "synced" : "never");
   const router = useRouter();
+
+  useEffect(() => {
+    if (!lastSync?.created_at) {
+      setSyncLabel("never");
+      return;
+    }
+    const mins = Math.max(0, Math.round((Date.now() - new Date(lastSync.created_at).getTime()) / 60000));
+    const when = mins < 1 ? "just now" : `${mins} min ago`;
+    setSyncLabel(`${when}${lastSync.ok ? "" : " (failed)"}`);
+  }, [lastSync]);
 
   const categoryChoices = useMemo(() => {
     const extras = items.map((item) => item.category).filter((name) => name && name !== "All");
@@ -73,6 +78,11 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
 
   function onPhoto(file: File | undefined) {
     if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setMessage("Photo must be under 4MB. Compress it or pick a smaller JPEG/PNG.");
+      return;
+    }
+    setMessage(null);
     setPreview(URL.createObjectURL(file));
   }
 
@@ -81,10 +91,10 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
       <div className="space-y-4">
         <Card className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            Operational menu is managed in POS; this is the customer display copy. Automatic sync runs once a day (Vercel Hobby). After you change the POS menu, tap Sync.
+            Operational menu comes from POS only. Upload photos here — POS images are not used. Automatic sync runs once a day; tap Sync after POS menu changes.
           </p>
-          <p className="text-xs text-gray-500">
-            Last synced: {lastSync ? `${minutesAgo(lastSync.created_at)}${lastSync.ok ? "" : " (failed)"}` : "never"}
+          <p className="text-xs text-gray-500" suppressHydrationWarning>
+            Last synced: {syncLabel}
           </p>
           <Button
             type="button"
@@ -111,32 +121,60 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
           ) : (
             <form
               className="space-y-3"
-              action={(formData) => {
+              onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
                 startTransition(async () => {
-                  const result = await saveMenuItem(formData);
-                  if (!result.ok) {
-                    setMessage(result.error);
-                    return;
+                  try {
+                    const photo = formData.get("photo");
+                    const file = photo instanceof File && photo.size > 0 ? photo : null;
+                    if (file) {
+                      const upload = new FormData();
+                      upload.append("photo", file);
+                      const response = await fetch("/api/admin/menu-photo", { method: "POST", body: upload });
+                      const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+                      if (!response.ok || !payload.url) {
+                        setMessage(payload.error || "Could not upload photo. Use a JPEG or PNG under 4MB.");
+                        return;
+                      }
+                      formData.set("image", payload.url);
+                      formData.delete("photo");
+                    }
+                    const result = await saveMenuItem(formData);
+                    if (!result.ok) {
+                      setMessage(result.error);
+                      return;
+                    }
+                    reset();
+                    router.refresh();
+                  } catch {
+                    setMessage("Could not save. Try a smaller JPEG or PNG under 4MB.");
                   }
-                  reset();
-                  router.refresh();
                 });
               }}
             >
               <input type="hidden" name="id" value={form.id} />
               <input type="hidden" name="image" value={form.image} />
+              {posMode ? (
+                <>
+                  <input type="hidden" name="name" value={form.name} />
+                  <input type="hidden" name="description" value={form.description} />
+                  <input type="hidden" name="price" value={form.price} />
+                  <input type="hidden" name="category" value={form.category} />
+                </>
+              ) : null}
               <label className="block text-sm font-semibold">
                 Name
-                <Input className="mt-1" name="name" required defaultValue={form.name} key={`name-${form.id}`} readOnly={posMode} />
+                  <Input className="mt-1" name={posMode ? undefined : "name"} required defaultValue={form.name} key={`name-${form.id}`} readOnly={posMode} />
               </label>
               <label className="block text-sm font-semibold">
                 Description
-                <Textarea className="mt-1 min-h-20" name="description" defaultValue={form.description} key={`desc-${form.id}`} readOnly={posMode} />
+                <Textarea className="mt-1 min-h-20" name={posMode ? undefined : "description"} defaultValue={form.description} key={`desc-${form.id}`} readOnly={posMode} />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-sm font-semibold">
                   Price (₹)
-                  <Input className="mt-1" name="price" type="number" min="0" step="1" required defaultValue={form.price} key={`price-${form.id}`} readOnly={posMode} />
+                  <Input className="mt-1" name={posMode ? undefined : "price"} type="number" min="0" step="1" required defaultValue={form.price} key={`price-${form.id}`} readOnly={posMode} />
                 </label>
                 <label className="block text-sm font-semibold">
                   Rating (0–5)
@@ -145,7 +183,7 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
               </div>
               <label className="block text-sm font-semibold">
                 Category
-                <Input className="mt-1" name="category" list="menu-categories" required defaultValue={form.category} key={`cat-${form.id}`} readOnly={posMode} />
+                <Input className="mt-1" name={posMode ? undefined : "category"} list="menu-categories" required defaultValue={form.category} key={`cat-${form.id}`} readOnly={posMode} />
                 <datalist id="menu-categories">
                   {categoryChoices.map((name) => (
                     <option key={name} value={name} />
@@ -158,7 +196,7 @@ export function MenuEditor({ items, posMode, lastSync }: MenuEditorProps) {
                   className="mt-1 block w-full text-sm"
                   type="file"
                   name="photo"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
                   onChange={(e) => onPhoto(e.target.files?.[0])}
                 />
               </label>
