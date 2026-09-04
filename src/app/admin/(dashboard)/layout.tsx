@@ -11,7 +11,7 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
             <img src="/adda.png" alt="Adda" className="h-10 w-10 rounded-full object-cover" />
             <div>
               <p className="font-black text-gray-800 dark:text-white">Adda Admin</p>
-              <p className="text-xs text-gray-500">Menu, reviews, QR, settings</p>
+              <p className="text-xs text-gray-500">Menu, customers, QR, settings</p>
             </div>
           </div>
           <nav className="flex flex-wrap gap-2 text-sm font-semibold">
@@ -20,6 +20,9 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
             </Link>
             <Link className="rounded-2xl bg-red-50 px-3 py-2 text-red-700" href="/admin/menu">
               Menu
+            </Link>
+            <Link className="rounded-2xl bg-red-50 px-3 py-2 text-red-700" href="/admin/customers">
+              Customers
             </Link>
             <Link className="rounded-2xl bg-red-50 px-3 py-2 text-red-700" href="/admin/qr">
               Table QR
