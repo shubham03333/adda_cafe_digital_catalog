@@ -30,7 +30,7 @@ export async function posFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) {
-    await trackEvent("pos_api_error", {
+    void trackEvent("pos_api_error", {
       path,
       status: response.status,
       error: data.error ?? "request failed",

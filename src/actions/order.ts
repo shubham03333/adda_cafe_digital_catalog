@@ -4,10 +4,12 @@ import { createServiceSupabase } from "@/lib/supabase/admin";
 import { DEFAULT_CAFE_ID } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { isOrderingEnabled, posConfigured } from "@/lib/pos/config";
-import { getOrderStatus, submitOrderToPos } from "@/lib/pos/order-client";
-import { resolvePosTableCode } from "@/lib/pos/table-map";
+import { getOrderStatus, getOrderStatusByNumber, submitOrderToPos } from "@/lib/pos/order-client";
+import { unstable_noStore as noStore } from "next/cache";
+import { tableCodeFromNumber } from "@/lib/pos/table-map";
 import { PosApiError } from "@/lib/pos/client";
 import { isValidPhone, normalizePhone } from "@/lib/guest-crypto";
+import { normalizeOrderStatus } from "@/lib/order-display";
 
 type CartItem = {
   id: number;
@@ -48,49 +50,10 @@ export async function placeOrder(input: {
   }
 
   const supabase = createServiceSupabase();
-  const tableCode = await resolvePosTableCode(input.tableNumber);
+  const tableCode = tableCodeFromNumber(input.tableNumber);
   const computed = input.items.reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
   if (Math.abs(computed - Number(input.total)) > 0.01) {
     return { ok: false as const, error: "Cart total does not match." };
-  }
-
-  const local = {
-    cafe_id: DEFAULT_CAFE_ID,
-    table_number: input.tableNumber,
-    idempotency_key: input.idempotencyKey,
-    status: "pending_submit",
-    payment_status: "pending",
-    items: input.items,
-    total: Number(computed.toFixed(2)),
-    session_id: input.sessionId,
-    guest_name: customerName,
-    guest_phone: customerPhone,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (supabase) {
-    const { data: existing } = await supabase
-      .from("customer_orders")
-      .select("id, pos_order_id, pos_order_number, status, payment_status, total")
-      .eq("idempotency_key", input.idempotencyKey)
-      .maybeSingle();
-    if (existing?.pos_order_id) {
-      return {
-        ok: true as const,
-        orderId: existing.id,
-        posOrderId: existing.pos_order_id,
-        orderNumber: existing.pos_order_number,
-        status: existing.status,
-        total: Number(existing.total),
-      };
-    }
-    if (!existing) {
-      const { error } = await supabase.from("customer_orders").insert(local);
-      if (error) {
-        const { guest_name: _n, guest_phone: _p, ...withoutGuest } = local;
-        await supabase.from("customer_orders").insert(withoutGuest);
-      }
-    }
   }
 
   try {
@@ -107,39 +70,25 @@ export async function placeOrder(input: {
       notes: input.notes?.trim() || undefined,
     });
 
-    if (supabase) {
-      await supabase
-        .from("customer_orders")
-        .update({
-          pos_order_id: created.id,
-          pos_order_number: created.order_number,
-          status: created.status || "submitted",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("idempotency_key", input.idempotencyKey);
-    }
-
-    await trackEvent("order_placed", {
-      sessionId: input.sessionId,
-      posOrderId: created.id,
-      orderNumber: created.order_number,
+    void persistPlacedOrder({
+      supabase,
+      cafeId: DEFAULT_CAFE_ID,
       tableNumber: input.tableNumber,
+      idempotencyKey: input.idempotencyKey,
+      sessionId: input.sessionId,
+      customerName,
+      customerPhone,
+      items: input.items,
+      total: Number(computed.toFixed(2)),
+      created,
     });
-
-    const { data: saved } = supabase
-      ? await supabase
-          .from("customer_orders")
-          .select("id")
-          .eq("idempotency_key", input.idempotencyKey)
-          .maybeSingle()
-      : { data: null };
 
     return {
       ok: true as const,
-      orderId: saved?.id ?? null,
+      orderId: null,
       posOrderId: created.id,
       orderNumber: created.order_number,
-      status: created.status,
+      status: normalizeOrderStatus(created.status),
       total: Number(computed.toFixed(2)),
     };
   } catch (error) {
@@ -151,50 +100,234 @@ export async function placeOrder(input: {
       /invalid or inactive table/i.test(raw)
         ? `Table ${input.tableNumber} is not an active POS table (expected code like T${String(input.tableNumber).padStart(2, "0")}).`
         : raw;
-    await trackEvent("pos_api_error", { action: "place_order", message });
+    void trackEvent("pos_api_error", { action: "place_order", message });
     return { ok: false as const, error: message };
   }
 }
 
-export async function getCustomerOrder(orderId: string) {
-  const supabase = createServiceSupabase();
-  if (!supabase) return null;
-  const { data } = await supabase
-    .from("customer_orders")
-    .select("id, pos_order_id, pos_order_number, status, payment_status, items, total, table_number, updated_at, session_id")
-    .eq("id", orderId)
-    .eq("cafe_id", DEFAULT_CAFE_ID)
-    .maybeSingle();
-  if (!data) return null;
+async function persistPlacedOrder(input: {
+  supabase: ReturnType<typeof createServiceSupabase>;
+  cafeId: string;
+  tableNumber: number;
+  idempotencyKey: string;
+  sessionId: string;
+  customerName: string;
+  customerPhone: string;
+  items: CartItem[];
+  total: number;
+  created: { id: string; order_number: string; status: string };
+}) {
+  const { supabase, created } = input;
+  void trackEvent("order_placed", {
+    sessionId: input.sessionId,
+    posOrderId: created.id,
+    orderNumber: created.order_number,
+    tableNumber: input.tableNumber,
+  });
+  if (!supabase) return;
 
-  if (data.pos_order_id && posConfigured() && data.status !== "cancelled") {
-    try {
-      const remote = await getOrderStatus(data.pos_order_id);
+  const row = {
+    cafe_id: input.cafeId,
+    table_number: input.tableNumber,
+    idempotency_key: input.idempotencyKey,
+    status: normalizeOrderStatus(created.status || "pending"),
+    payment_status: "pending",
+    items: input.items,
+    total: input.total,
+    session_id: input.sessionId,
+    guest_name: input.customerName,
+    guest_phone: input.customerPhone,
+    pos_order_id: created.id,
+    pos_order_number: created.order_number,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("customer_orders").insert(row);
+  if (error) {
+    if (/guest_phone|guest_name|column/i.test(error.message)) {
+      const { guest_name: _n, guest_phone: _p, ...withoutGuest } = row;
+      await supabase.from("customer_orders").insert(withoutGuest);
+    } else if (/duplicate|unique|idempotency/i.test(error.message)) {
       await supabase
         .from("customer_orders")
         .update({
-          status: remote.status,
-          payment_status: remote.payment_status,
-          updated_at: new Date().toISOString(),
+          pos_order_id: created.id,
+          pos_order_number: created.order_number,
+          status: row.status,
+          updated_at: row.updated_at,
         })
-        .eq("id", data.id);
-      return { ...data, status: remote.status, payment_status: remote.payment_status };
-    } catch (error) {
-      if (error instanceof PosApiError && error.status === 404) {
-        await supabase
-          .from("customer_orders")
-          .update({ status: "cancelled", updated_at: new Date().toISOString() })
-          .eq("id", data.id);
-        return { ...data, status: "cancelled" };
-      }
-      return data;
+        .eq("idempotency_key", input.idempotencyKey);
     }
   }
-  return data;
+
+  await supabase
+    .from("customer_orders")
+    .delete()
+    .eq("cafe_id", input.cafeId)
+    .eq("guest_phone", input.customerPhone)
+    .eq("status", "pending_submit")
+    .is("pos_order_id", null)
+    .eq("total", input.total)
+    .neq("idempotency_key", input.idempotencyKey);
+}
+
+export async function getCustomerOrder(
+  orderId: string,
+  posOrderId?: string | null,
+  orderNumber?: string | null
+) {
+  noStore();
+  const supabase = createServiceSupabase();
+
+  const toClient = (
+    row: {
+      id?: string | null;
+      pos_order_id?: string | null;
+      pos_order_number?: string | null;
+      status?: string | null;
+      payment_status?: string | null;
+      items?: unknown;
+      total?: unknown;
+      table_number?: number | null;
+      updated_at?: string | null;
+    },
+    extras?: { status?: string; items?: unknown; total?: number }
+  ) => {
+    const items = parseOrderItems(extras?.items ?? row.items);
+    return {
+      id: row.id ?? null,
+      posOrderId: row.pos_order_id ?? posOrderId ?? null,
+      orderNumber: String(row.pos_order_number || orderNumber || ""),
+      status: normalizeOrderStatus(extras?.status ?? row.status ?? "pending"),
+      paymentStatus: row.payment_status,
+      items,
+      total: extras?.total != null ? Number(extras.total) : Number(row.total) || 0,
+      tableNumber: row.table_number == null ? null : Number(row.table_number),
+      updatedAt: row.updated_at,
+    };
+  };
+
+  let data: {
+    id: string;
+    pos_order_id: string | null;
+    pos_order_number: string | null;
+    status: string;
+    payment_status: string | null;
+    items: unknown;
+    total: unknown;
+    table_number: number | null;
+    updated_at: string | null;
+  } | null = null;
+
+  const selectCols =
+    "id, pos_order_id, pos_order_number, status, payment_status, items, total, table_number, updated_at";
+
+  if (supabase) {
+    if (orderId) {
+      const byId = await supabase
+        .from("customer_orders")
+        .select(selectCols)
+        .eq("id", orderId)
+        .eq("cafe_id", DEFAULT_CAFE_ID)
+        .maybeSingle();
+      data = byId.data;
+    }
+    if (!data && posOrderId) {
+      const byPos = await supabase
+        .from("customer_orders")
+        .select(selectCols)
+        .eq("pos_order_id", posOrderId)
+        .eq("cafe_id", DEFAULT_CAFE_ID)
+        .maybeSingle();
+      data = byPos.data;
+    }
+    if (!data && orderNumber) {
+      const byNumber = await supabase
+        .from("customer_orders")
+        .select(selectCols)
+        .eq("pos_order_number", orderNumber)
+        .eq("cafe_id", DEFAULT_CAFE_ID)
+        .limit(1)
+        .maybeSingle();
+      data = byNumber.data;
+    }
+  }
+
+  const remoteId = data?.pos_order_id || posOrderId || null;
+  const remoteNumber = data?.pos_order_number || orderNumber || null;
+
+  async function fetchPosOrder() {
+    if (!posConfigured()) return null;
+    if (remoteId) {
+      try {
+        return await getOrderStatus(String(remoteId));
+      } catch (error) {
+        if (!(error instanceof PosApiError && error.status === 404)) throw error;
+        if (remoteNumber) {
+          try {
+            return await getOrderStatusByNumber(String(remoteNumber));
+          } catch (inner) {
+            if (inner instanceof PosApiError && inner.status === 404) throw error;
+            throw inner;
+          }
+        }
+        throw error;
+      }
+    }
+    if (remoteNumber) return getOrderStatusByNumber(String(remoteNumber));
+    return null;
+  }
+
+  if (remoteId || remoteNumber) {
+    try {
+      const remote = await fetchPosOrder();
+      if (!remote) {
+        return data ? toClient(data) : null;
+      }
+      const items = parseOrderItems(remote.items);
+      const total = Number(remote.total);
+      const status = normalizeOrderStatus(remote.status);
+      if (supabase && data?.id) {
+        await supabase
+          .from("customer_orders")
+          .update({
+            status,
+            payment_status: remote.payment_status,
+            items,
+            total,
+            pos_order_id: remote.id || data.pos_order_id,
+            pos_order_number: remote.order_number || data.pos_order_number,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", data.id);
+      }
+      return toClient(
+        data || {
+          pos_order_id: remote.id || remoteId,
+          pos_order_number: remote.order_number || remoteNumber,
+        },
+        { status, items, total }
+      );
+    } catch (error) {
+      if (error instanceof PosApiError && error.status === 404) {
+        if (supabase && data?.id) {
+          await supabase
+            .from("customer_orders")
+            .update({ status: "cancelled", updated_at: new Date().toISOString() })
+            .eq("id", data.id);
+        }
+        return toClient(data || { pos_order_id: remoteId, pos_order_number: remoteNumber }, { status: "cancelled" });
+      }
+      return data ? toClient(data) : null;
+    }
+  }
+
+  return data ? toClient(data) : null;
 }
 
 export type GuestHistoryOrder = {
   orderId: string;
+  posOrderId?: string | null;
   orderNumber: string;
   status: string;
   paymentStatus: string;
@@ -221,6 +354,34 @@ function parseOrderItems(raw: unknown) {
     .filter((item): item is { name: string; quantity: number; price: number } => Boolean(item));
 }
 
+function historyFingerprint(order: GuestHistoryOrder) {
+  const items = order.items
+    .map((item) => `${item.quantity}x${item.name.trim().toLowerCase()}`)
+    .sort()
+    .join("|");
+  return `${order.tableNumber ?? ""}|${order.total}|${items}`;
+}
+
+function dedupeGuestHistory(orders: GuestHistoryOrder[]) {
+  const visible = orders.filter(
+    (order) => order.status !== "pending_submit" && order.orderNumber && order.orderNumber !== "—"
+  );
+
+  const best = new Map<string, GuestHistoryOrder>();
+  for (const order of visible) {
+    const minute = Math.floor(new Date(order.placedAt).getTime() / (10 * 60 * 1000));
+    const key = `${historyFingerprint(order)}|${minute}`;
+    const current = best.get(key);
+    if (!current || new Date(order.placedAt).getTime() > new Date(current.placedAt).getTime()) {
+      best.set(key, order);
+    }
+  }
+
+  return [...best.values()].sort(
+    (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime()
+  );
+}
+
 export async function getGuestOrderHistory(phone: string) {
   const guestPhone = normalizePhone(phone);
   if (!isValidPhone(guestPhone)) {
@@ -236,7 +397,7 @@ export async function getGuestOrderHistory(phone: string) {
     const { data, error } = await supabase
       .from("customer_orders")
       .select(
-        "id, pos_order_number, status, payment_status, items, total, table_number, created_at, guest_phone"
+        "id, pos_order_id, pos_order_number, status, payment_status, items, total, table_number, created_at, guest_phone"
       )
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .eq("guest_phone", guestPhone)
@@ -251,10 +412,11 @@ export async function getGuestOrderHistory(phone: string) {
       return { ok: false as const, error: "Could not load your orders.", orders: [] as GuestHistoryOrder[] };
     }
 
-    const orders: GuestHistoryOrder[] = (data || []).map((row) => ({
+    const mapped: GuestHistoryOrder[] = (data || []).map((row) => ({
       orderId: String(row.id),
+      posOrderId: row.pos_order_id ? String(row.pos_order_id) : null,
       orderNumber: String(row.pos_order_number || "—"),
-      status: String(row.status || "pending"),
+      status: normalizeOrderStatus(String(row.status || "pending")),
       paymentStatus: String(row.payment_status || "pending"),
       total: Number(row.total) || 0,
       tableNumber: row.table_number == null ? null : Number(row.table_number),
@@ -262,7 +424,7 @@ export async function getGuestOrderHistory(phone: string) {
       items: parseOrderItems(row.items),
     }));
 
-    return { ok: true as const, orders };
+    return { ok: true as const, orders: dedupeGuestHistory(mapped) };
   } catch {
     return { ok: false as const, error: "Could not load your orders.", orders: [] as GuestHistoryOrder[] };
   }

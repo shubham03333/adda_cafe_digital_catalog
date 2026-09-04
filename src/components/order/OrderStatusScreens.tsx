@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { mapKitchenStatus, TRACK_STEPS } from "@/lib/order-display";
+import { mapKitchenStatus, TRACK_STEPS, normalizeOrderStatus } from "@/lib/order-display";
 import { getCustomerOrder } from "@/actions/order";
 import { cn } from "@/lib/utils";
-import type { SessionOrderItem } from "@/lib/order-session";
+import { upsertPlacedOrder, type SessionOrder, type SessionOrderItem } from "@/lib/order-session";
 
 function ItemList({ items, total }: { items: SessionOrderItem[]; total: number }) {
   if (!items.length) return null;
@@ -71,17 +71,54 @@ export function OrderSuccess({ orderNumber, tableNumber, status, items = [], tot
 
 type TrackerProps = {
   orderId: string | null;
+  posOrderId?: string | null;
   orderNumber: string;
   status: string;
   tableNumber: number;
   items?: SessionOrderItem[];
   total?: number;
+  placedAt?: string;
   onBackToMenu: () => void;
+  onLiveUpdate?: (order: SessionOrder) => void;
 };
 
-export function OrderTracker({ orderId, orderNumber, status, tableNumber, items = [], total = 0, onBackToMenu }: TrackerProps) {
-  const [liveStatus, setLiveStatus] = useState(status);
+export function OrderTracker({
+  orderId,
+  posOrderId,
+  orderNumber,
+  status,
+  tableNumber,
+  items = [],
+  total = 0,
+  placedAt,
+  onBackToMenu,
+  onLiveUpdate,
+}: TrackerProps) {
+  const [liveStatus, setLiveStatus] = useState(normalizeOrderStatus(status));
+  const [liveItems, setLiveItems] = useState(items);
+  const [liveTotal, setLiveTotal] = useState(total);
+  const [staffEdited, setStaffEdited] = useState(false);
   const [minutes, setMinutes] = useState(10);
+  const baselineRef = useRef({ items, total });
+  const liveRef = useRef({ onLiveUpdate, orderNumber, placedAt, tableNumber, posOrderId, orderId });
+  liveRef.current = { onLiveUpdate, orderNumber, placedAt, tableNumber, posOrderId, orderId };
+
+  useEffect(() => {
+    setLiveItems(items);
+    setLiveTotal(total);
+    setStaffEdited(false);
+    baselineRef.current = { items, total };
+    setLiveStatus(normalizeOrderStatus(status));
+  }, [orderNumber]);
+
+  useEffect(() => {
+    setLiveStatus((prev) => {
+      const next = normalizeOrderStatus(status);
+      if (next === "cancelled") return next;
+      if (mapKitchenStatus(next) >= mapKitchenStatus(prev)) return next;
+      return prev;
+    });
+  }, [status]);
 
   useEffect(() => {
     const tick = window.setInterval(() => setMinutes((m) => Math.max(0, m - 1)), 60_000);
@@ -89,14 +126,48 @@ export function OrderTracker({ orderId, orderNumber, status, tableNumber, items 
   }, []);
 
   useEffect(() => {
-    if (!orderId) return;
-    const poll = window.setInterval(() => {
-      void getCustomerOrder(orderId).then((order) => {
-        if (order?.status) setLiveStatus(order.status);
+    if (!orderId && !posOrderId && !orderNumber) return;
+
+    async function refresh() {
+      const order = await getCustomerOrder(orderId || "", posOrderId, orderNumber);
+      if (!order) return;
+      const nextStatus = normalizeOrderStatus(order.status);
+      setLiveStatus((prev) => {
+        if (nextStatus === "cancelled" || nextStatus === "ready" || nextStatus === "served") return nextStatus;
+        if (mapKitchenStatus(nextStatus) >= mapKitchenStatus(prev)) return nextStatus;
+        return prev;
       });
-    }, 8000);
+      const nextItems = (order.items || []).map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+      const nextTotal = Number(order.total) || 0;
+      if (nextItems.length) setLiveItems(nextItems);
+      setLiveTotal(nextTotal);
+      const baseline = baselineRef.current;
+      const changed =
+        JSON.stringify(nextItems) !== JSON.stringify(baseline.items) || nextTotal !== Number(baseline.total);
+      if (changed && nextItems.length) setStaffEdited(true);
+      const snapshot: SessionOrder = {
+        orderId: order.id || liveRef.current.orderId,
+        posOrderId: order.posOrderId || liveRef.current.posOrderId,
+        orderNumber: order.orderNumber || liveRef.current.orderNumber,
+        status: nextStatus,
+        total: nextTotal,
+        items: nextItems.length ? nextItems : baseline.items,
+        placedAt: liveRef.current.placedAt || new Date().toISOString(),
+      };
+      upsertPlacedOrder(liveRef.current.tableNumber, snapshot);
+      liveRef.current.onLiveUpdate?.(snapshot);
+    }
+
+    void refresh();
+    const poll = window.setInterval(() => {
+      void refresh();
+    }, 3000);
     return () => window.clearInterval(poll);
-  }, [orderId]);
+  }, [orderId, posOrderId, orderNumber]);
 
   const step = mapKitchenStatus(liveStatus);
   const cancelled = step < 0;
@@ -107,19 +178,21 @@ export function OrderTracker({ orderId, orderNumber, status, tableNumber, items 
       <h1 className="mt-2 text-2xl font-black text-gray-900">Order #{orderNumber}</h1>
       {cancelled ? (
         <div className="mt-8 rounded-[24px] bg-white p-6 text-center shadow-sm">
-          <p className="text-lg font-black text-gray-900">This order was cancelled</p>
-          <p className="mt-2 text-sm text-gray-500">The kitchen removed it. You can place a new order from the menu.</p>
+          <p className="text-lg font-black text-gray-900">This order is cancelled</p>
+          <p className="mt-2 text-sm text-gray-500">Staff cancelled it from the counter. You can place a new order from the menu.</p>
         </div>
       ) : (
         <>
           <p className="mt-1 text-sm text-gray-500">
-            {liveStatus.toLowerCase() === "pending"
+            {normalizeOrderStatus(liveStatus) === "pending"
               ? "Waiting for staff to confirm at the counter."
-              : step >= 3
-                ? "Enjoy your meal."
-                : minutes > 0
-                  ? `About ${minutes} min remaining`
-                  : "Almost ready"}
+              : normalizeOrderStatus(liveStatus) === "ready"
+                ? "Your order is ready."
+                : step >= 3
+                  ? "Enjoy your meal."
+                  : minutes > 0
+                    ? `About ${minutes} min remaining`
+                    : "Almost ready"}
           </p>
           <ol className="mt-8 space-y-0">
             {TRACK_STEPS.map((label, index) => {
@@ -138,7 +211,10 @@ export function OrderTracker({ orderId, orderNumber, status, tableNumber, items 
             })}
           </ol>
           <div className="mx-auto max-w-sm">
-            <ItemList items={items} total={total} />
+            {staffEdited ? (
+              <p className="mt-6 text-center text-xs font-semibold text-amber-700">Updated by staff</p>
+            ) : null}
+            <ItemList items={liveItems} total={liveTotal} />
           </div>
         </>
       )}

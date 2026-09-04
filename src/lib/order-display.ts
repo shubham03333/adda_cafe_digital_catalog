@@ -32,7 +32,6 @@ export function isExtraCategory(name: string) {
 export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
   const map = new Map<string, CategoryRailItem>();
   for (const dish of dishes) {
-    if (isExtraCategory(dish.category)) continue;
     const current = map.get(dish.category);
     if (current) {
       current.count += 1;
@@ -44,18 +43,23 @@ export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
       });
     }
   }
-  return [{ name: "All", count: dishes.filter((d) => !isExtraCategory(d.category)).length, image: "/adda.png" }, ...map.values()];
+  return [{ name: "All", count: dishes.length, image: "/adda.png" }, ...map.values()];
 }
 
 export type ItemExtras = {
   note: string;
-  extraCheese?: boolean;
+  extraCheeseQty?: number;
 };
 
 export const EXTRA_CHEESE_PRICE = 10;
+export const EXTRA_CHEESE_MAX = 10;
 
-export function isRoll(dish: Dish) {
-  return /roll/i.test(dish.name);
+export function extraCheeseQty(extras?: ItemExtras) {
+  return Math.max(0, Math.min(EXTRA_CHEESE_MAX, Number(extras?.extraCheeseQty) || 0));
+}
+
+export function allowsCheeseAddon(dish: Dish) {
+  return !isDrink(dish) && !isExtraCategory(dish.category);
 }
 
 export function findExtraCheeseDish(dishes: Dish[]) {
@@ -71,35 +75,50 @@ export function extraCheesePrice(dishes: Dish[]) {
   return topping ? Number(topping.price) || EXTRA_CHEESE_PRICE : EXTRA_CHEESE_PRICE;
 }
 
-export function lineItemUnitPrice(dish: Dish, extras?: ItemExtras, dishes?: Dish[]) {
-  const base = dish.price;
-  if (!extras?.extraCheese || !isRoll(dish)) return base;
-  return base + (dishes ? extraCheesePrice(dishes) : EXTRA_CHEESE_PRICE);
-}
-
 export function lineItemTotal(dish: Dish, quantity: number, extras?: ItemExtras, dishes?: Dish[]) {
-  return lineItemUnitPrice(dish, extras, dishes) * Math.max(1, quantity);
+  const cheese = allowsCheeseAddon(dish) ? extraCheeseQty(extras) : 0;
+  const cheeseCost = cheese * (dishes ? extraCheesePrice(dishes) : EXTRA_CHEESE_PRICE);
+  return dish.price * Math.max(1, quantity) + cheeseCost;
 }
 
 export function extrasLabel(extras?: ItemExtras) {
   if (!extras) return "";
-  const bits = [extras.extraCheese ? "Extra cheese" : "", extras.note].filter(Boolean);
+  const cheese = extraCheeseQty(extras);
+  const bits = [cheese > 0 ? `Cheese ×${cheese}` : "", extras.note].filter(Boolean);
   return bits.join(" · ");
 }
 
 export function isDrink(dish: Dish) {
-  const hay = `${dish.category} ${dish.name}`.toLowerCase();
-  return hay.includes("beverage") || hay.includes("coffee") || hay.includes("tea") || hay.includes("mocktail");
+  const category = dish.category.toLowerCase();
+  return (
+    category.includes("beverage") ||
+    category.includes("coffee") ||
+    category.includes("tea") ||
+    category.includes("drink")
+  );
+}
+
+export function normalizeOrderStatus(status: string) {
+  const value = String(status || "").trim().toLowerCase();
+  if (["cancelled", "canceled", "deleted", "void"].includes(value)) return "cancelled";
+  if (["served", "completed", "complete"].includes(value)) return "served";
+  if (["ready", "prepared", "done"].includes(value)) return "ready";
+  if (["preparing", "submitted", "accepted", "confirmed"].includes(value)) return "preparing";
+  if (["pending", "pending_submit"].includes(value)) return "pending";
+  return value || "pending";
 }
 
 export function mapKitchenStatus(status: string) {
-  const value = status.toLowerCase();
-  if (value === "cancelled" || value === "canceled" || value === "deleted") return -1;
+  const value = normalizeOrderStatus(status);
+  if (value === "cancelled") return -1;
   if (value === "served") return 3;
   if (value === "ready") return 2;
-  if (value === "preparing" || value === "submitted") return 1;
-  if (value === "pending") return 0;
+  if (value === "preparing") return 1;
   return 0;
+}
+
+export function isCancelledStatus(status: string) {
+  return normalizeOrderStatus(status) === "cancelled";
 }
 
 export const TRACK_STEPS = ["Waiting for staff", "Preparing", "Ready", "Served"] as const;
