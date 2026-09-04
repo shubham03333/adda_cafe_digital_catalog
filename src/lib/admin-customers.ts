@@ -14,47 +14,66 @@ export type CatalogCustomer = {
   createdAt: string | null;
 };
 
-async function fetchAllRows<T extends Record<string, unknown>>(
-  table: string,
-  columns: string
-): Promise<T[]> {
+type GuestRow = {
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  email_verified: boolean | null;
+  created_at: string | null;
+};
+
+type OrderRow = {
+  guest_phone: string | null;
+  guest_name: string | null;
+  total: number | string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
+async function fetchAllGuests(): Promise<GuestRow[]> {
   const supabase = createServiceSupabase();
   if (!supabase) return [];
   const pageSize = 1000;
-  const rows: T[] = [];
+  const rows: GuestRow[] = [];
   for (let from = 0; from < 20_000; from += pageSize) {
     const { data, error } = await supabase
-      .from(table)
-      .select(columns)
+      .from("guest_customers")
+      .select("name, phone, email, email_verified, created_at")
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .range(from, from + pageSize - 1);
     if (error || !data?.length) {
       if (error && from === 0) return [];
       break;
     }
-    rows.push(...(data as T[]));
+    rows.push(...(data as unknown as GuestRow[]));
+    if (data.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function fetchAllOrders(): Promise<OrderRow[]> {
+  const supabase = createServiceSupabase();
+  if (!supabase) return [];
+  const pageSize = 1000;
+  const rows: OrderRow[] = [];
+  for (let from = 0; from < 20_000; from += pageSize) {
+    const { data, error } = await supabase
+      .from("customer_orders")
+      .select("guest_phone, guest_name, total, status, created_at")
+      .eq("cafe_id", DEFAULT_CAFE_ID)
+      .range(from, from + pageSize - 1);
+    if (error || !data?.length) {
+      if (error && from === 0) return [];
+      break;
+    }
+    rows.push(...(data as unknown as OrderRow[]));
     if (data.length < pageSize) break;
   }
   return rows;
 }
 
 export async function getCatalogCustomers(): Promise<CatalogCustomer[]> {
-  const [guests, orders] = await Promise.all([
-    fetchAllRows<{
-      name: string | null;
-      phone: string | null;
-      email: string | null;
-      email_verified: boolean | null;
-      created_at: string | null;
-    }>("guest_customers", "name, phone, email, email_verified, created_at"),
-    fetchAllRows<{
-      guest_phone: string | null;
-      guest_name: string | null;
-      total: number | string | null;
-      status: string | null;
-      created_at: string | null;
-    }>("customer_orders", "guest_phone, guest_name, total, status, created_at"),
-  ]);
+  const [guests, orders] = await Promise.all([fetchAllGuests(), fetchAllOrders()]);
 
   const byPhone = new Map<string, CatalogCustomer>();
 
