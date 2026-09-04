@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { CafeShell } from "@/components/layout/CafeShell";
 import type { Dish } from "@/data/menuData";
-import { getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
-import { buildCategoryRail, extrasLabel, findExtraCheeseDish, isExtraCategory, lineItemTotal, type ItemExtras } from "@/lib/order-display";
+import { getCustomerOrder, getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
+import { buildCategoryRail, extraCheeseQty, extrasLabel, findExtraCheeseDish, isCancelledStatus, lineItemTotal, normalizeOrderStatus, type ItemExtras } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
 import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
@@ -14,7 +14,7 @@ import { CustomizeSheet } from "@/components/order/CustomizeSheet";
 import { CartSheet } from "@/components/order/CartSheet";
 import { GuestOrdersSheet } from "@/components/order/GuestOrdersSheet";
 import { OrderSuccess, OrderTracker } from "@/components/order/OrderStatusScreens";
-import { appendPlacedOrder, readPlacedOrders, type SessionOrder } from "@/lib/order-session";
+import { appendPlacedOrder, readPlacedOrders, upsertPlacedOrder, writePlacedOrders, type SessionOrder } from "@/lib/order-session";
 import { GUEST_STORAGE_KEY, type GuestProfile } from "@/lib/guest-profile";
 import { GuestGate } from "@/components/order/GuestGate";
 import { cn } from "@/lib/utils";
@@ -57,6 +57,8 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [history, setHistory] = useState<GuestHistoryOrder[]>([]);
   const [pending, startTransition] = useTransition();
+  const placedRef = useRef(placed);
+  placedRef.current = placed;
 
   useEffect(() => {
     setPlaced(readPlacedOrders(tableNumber));
@@ -67,6 +69,47 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       sessionStorage.removeItem(GUEST_STORAGE_KEY);
     }
     setGuestReady(true);
+  }, [tableNumber]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshVisit() {
+      const current = placedRef.current;
+      if (!current.length) return;
+      const next = [...current];
+      let changed = false;
+      for (let i = 0; i < next.length; i += 1) {
+        const order = next[i];
+        if (!order.orderId && !order.posOrderId && !order.orderNumber) continue;
+        const live = await getCustomerOrder(order.orderId || "", order.posOrderId, order.orderNumber);
+        if (!live || cancelled) continue;
+        const status = normalizeOrderStatus(live.status);
+        if (status !== normalizeOrderStatus(order.status) || Number(live.total) !== Number(order.total)) {
+          next[i] = {
+            ...order,
+            orderId: live.id || order.orderId,
+            posOrderId: live.posOrderId || order.posOrderId,
+            status,
+            total: Number(live.total) || order.total,
+            items: live.items?.length ? live.items : order.items,
+            orderNumber: live.orderNumber || order.orderNumber,
+          };
+          changed = true;
+        }
+      }
+      if (changed && !cancelled) {
+        setPlaced(writePlacedOrders(tableNumber, next));
+      }
+    }
+
+    void refreshVisit();
+    const poll = window.setInterval(() => {
+      void refreshVisit();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, [tableNumber]);
 
   async function loadHistory(phone: string) {
@@ -93,7 +136,6 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return dishes.filter((dish) => {
-      if (isExtraCategory(dish.category)) return false;
       if (category !== "All" && dish.category !== category) return false;
       if (!q) return true;
       return dish.name.toLowerCase().includes(q) || dish.description.toLowerCase().includes(q);
@@ -154,12 +196,12 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         quantity: row.quantity,
       },
     ];
-    if (row.extras?.extraCheese && extraCheeseDish?.posMenuItemId) {
+    if (extraCheeseQty(row.extras) > 0 && extraCheeseDish?.posMenuItemId) {
       lines.push({
         id: extraCheeseDish.posMenuItemId,
         name: extraCheeseDish.name,
         price: Number(extraCheeseDish.price),
-        quantity: row.quantity,
+        quantity: extraCheeseQty(row.extras),
       });
     }
     return lines;
@@ -173,6 +215,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
     .filter(Boolean)
     .join(" | ");
 
+  const visitOrders = placed.filter((order) => !isCancelledStatus(order.status));
   const menuHref = tableNumber ? `/menu?table=${tableNumber}` : "/menu";
 
   function submit() {
@@ -200,13 +243,14 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       }
       const snapshot: SessionOrder = {
         orderId: placed.orderId ?? null,
+        posOrderId: placed.posOrderId ?? null,
         orderNumber: placed.orderNumber ?? "",
         status: placed.status,
         total,
         items: bagItems.map((row) => ({
           name: row.dish.name,
           quantity: row.quantity,
-          price: lineItemTotal(row.dish, 1, row.extras, dishes),
+          price: row.dish.price,
           extras: extrasLabel(row.extras) || undefined,
         })),
         placedAt: new Date().toISOString(),
@@ -245,14 +289,21 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       <CafeShell forceLight tone="order">
         <OrderTracker
           orderId={result.orderId}
+          posOrderId={result.posOrderId}
           orderNumber={result.orderNumber}
           status={result.status}
           tableNumber={tableNumber}
           items={result.items}
           total={result.total}
+          placedAt={result.placedAt}
+          onLiveUpdate={(order) => {
+            setResult(order);
+            setPlaced(upsertPlacedOrder(tableNumber, order));
+          }}
           onBackToMenu={() => {
             setResult(null);
             setScreen("menu");
+            setPlaced(readPlacedOrders(tableNumber));
           }}
         />
       </CafeShell>
@@ -282,7 +333,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       />
       <FilterChips options={categoryChips} value={category} onChange={setCategory} />
 
-      {placed.length > 0 ? (
+      {visitOrders.length > 0 ? (
         <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-white p-3 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Your orders this visit</p>
@@ -291,7 +342,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
             </button>
           </div>
           <ul className="mt-2 max-h-36 space-y-2 overflow-y-auto">
-            {placed.map((order) => (
+            {visitOrders.map((order) => (
               <li key={`${order.orderNumber}-${order.placedAt}`}>
                 <button
                   type="button"
@@ -304,6 +355,9 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
                   <span className="flex items-center justify-between text-sm font-black text-gray-900">
                     <span>#{order.orderNumber}</span>
                     <span>₹{order.total}</span>
+                  </span>
+                  <span className="mt-0.5 block text-xs font-semibold capitalize text-gray-500">
+                    {normalizeOrderStatus(order.status)}
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-gray-500">
                     {order.items.map((item) => `${item.quantity}× ${item.name}`).join(" · ")}
@@ -411,6 +465,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
           setHistoryOpen(false);
           setResult({
             orderId: order.orderId,
+            posOrderId: order.posOrderId,
             orderNumber: order.orderNumber,
             status: order.status,
             total: order.total,

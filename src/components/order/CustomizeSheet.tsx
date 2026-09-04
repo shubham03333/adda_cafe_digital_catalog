@@ -4,8 +4,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import type { Dish } from "@/data/menuData";
 import {
+  allowsCheeseAddon,
+  EXTRA_CHEESE_MAX,
+  extraCheesePrice,
+  extraCheeseQty,
   extrasLabel,
-  isRoll,
+  findExtraCheeseDish,
   isVegDish,
   lineItemTotal,
   prepMinutes,
@@ -13,9 +17,9 @@ import {
 } from "@/lib/order-display";
 import { QtyStepper } from "@/components/order/QtyStepper";
 import { VegMark } from "@/components/order/VegMark";
-import { cn } from "@/lib/utils";
 import { SheetPortal } from "@/components/order/SheetPortal";
 import { MenuPhoto } from "@/components/order/MenuPhoto";
+import { Minus, Plus } from "lucide-react";
 
 type CustomizeSheetProps = {
   dish: Dish | null;
@@ -41,8 +45,10 @@ export function CustomizeSheet({
   onConfirm,
 }: CustomizeSheetProps) {
   if (!dish) return null;
-  const roll = isRoll(dish);
-  const cheesePrice = dishes.find((item) => /x-?tra\s*cheese|extra\s*cheese/i.test(item.name))?.price ?? 10;
+  const showCheese = allowsCheeseAddon(dish);
+  const cheeseDish = findExtraCheeseDish(dishes);
+  const cheesePrice = extraCheesePrice(dishes);
+  const cheeseQty = extraCheeseQty(extras);
   const lineTotal = lineItemTotal(dish, quantity, extras, dishes);
 
   return (
@@ -95,20 +101,42 @@ export function CustomizeSheet({
               </div>
             </section>
 
-            {roll ? (
-              <section className="mt-3 rounded-[20px] bg-[#FAFAFA] p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Optional</p>
-                <button
-                  type="button"
-                  onClick={() => onExtras({ ...extras, extraCheese: !extras.extraCheese })}
-                  className={cn(
-                    "mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left",
-                    extras.extraCheese ? "bg-[#F5B400] text-gray-900" : "bg-white text-gray-800 shadow-sm"
-                  )}
-                >
-                  <span className="font-semibold">Extra cheese</span>
-                  <span className="font-black">+₹{cheesePrice}</span>
-                </button>
+            {showCheese ? (
+              <section className="mt-3 rounded-[20px] bg-white p-4">
+                <p className="text-xs font-black uppercase tracking-wide text-gray-900">Select your add-ons</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <MenuPhoto
+                    src={cheeseDish?.image || "/adda.png"}
+                    className="h-12 w-12 rounded-xl"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900">Cheese</p>
+                    <p className="text-sm text-gray-600">₹{cheesePrice}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Decrease cheese"
+                      disabled={cheeseQty <= 0}
+                      onClick={() => onExtras({ ...extras, extraCheeseQty: Math.max(0, cheeseQty - 1) })}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-[#F5B400] text-[#F5B400] disabled:opacity-40"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <span className="w-7 text-center text-sm font-black tabular-nums text-[#F5B400]">
+                      {String(cheeseQty).padStart(2, "0")}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase cheese"
+                      disabled={cheeseQty >= EXTRA_CHEESE_MAX}
+                      onClick={() => onExtras({ ...extras, extraCheeseQty: Math.min(EXTRA_CHEESE_MAX, cheeseQty + 1) })}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F5B400] text-gray-900 disabled:opacity-40"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </section>
             ) : null}
 

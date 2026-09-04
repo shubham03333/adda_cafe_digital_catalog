@@ -48,3 +48,9 @@ export async function submitOrderToPos(payload: SubmitOrderPayload) {
 export async function getOrderStatus(posOrderId: string) {
   return posFetch<PosOrderStatus>(`/api/integrations/orders/${encodeURIComponent(posOrderId)}`);
 }
+
+export async function getOrderStatusByNumber(orderNumber: string) {
+  return posFetch<PosOrderStatus>(
+    `/api/integrations/orders/by-number?order_number=${encodeURIComponent(orderNumber)}`
+  );
+}

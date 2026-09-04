@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
     order_number?: string;
     status?: string;
     payment_status?: string;
+    items?: unknown;
+    total?: number;
   };
   try {
     payload = JSON.parse(body) as typeof payload;
@@ -48,21 +50,36 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createServiceSupabase();
-  if (supabase && payload.order_id) {
+  if (supabase && (payload.order_id || payload.order_number)) {
     const cancelled = payload.event === "order.deleted" || payload.status === "cancelled";
-    const { error } = await supabase
-      .from("customer_orders")
-      .update({
-        status: cancelled ? "cancelled" : payload.status ?? undefined,
-        payment_status: payload.payment_status ?? undefined,
-        pos_order_number: payload.order_number ?? undefined,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("pos_order_id", payload.order_id)
-      .eq("cafe_id", DEFAULT_CAFE_ID);
-    if (error) {
-      await trackEvent("webhook_failed", { reason: error.message, orderId: payload.order_id });
-      return NextResponse.json({ ok: true, warning: "order not updated" });
+    const patch: Record<string, unknown> = {
+      status: cancelled ? "cancelled" : payload.status ? String(payload.status).toLowerCase() : undefined,
+      payment_status: payload.payment_status ?? undefined,
+      pos_order_number: payload.order_number ?? undefined,
+      updated_at: new Date().toISOString(),
+    };
+    if (Array.isArray(payload.items)) patch.items = payload.items;
+    if (payload.total != null && Number.isFinite(Number(payload.total))) {
+      patch.total = Number(payload.total);
+    }
+    const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+    if (payload.order_id) {
+      const { error } = await supabase
+        .from("customer_orders")
+        .update(cleanPatch)
+        .eq("pos_order_id", String(payload.order_id))
+        .eq("cafe_id", DEFAULT_CAFE_ID);
+      if (error) {
+        await trackEvent("webhook_failed", { reason: error.message, orderId: payload.order_id });
+        return NextResponse.json({ ok: true, warning: "order not updated" });
+      }
+    }
+    if (payload.order_number) {
+      await supabase
+        .from("customer_orders")
+        .update(cleanPatch)
+        .eq("pos_order_number", String(payload.order_number))
+        .eq("cafe_id", DEFAULT_CAFE_ID);
     }
   }
 
