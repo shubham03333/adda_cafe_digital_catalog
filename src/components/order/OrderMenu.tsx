@@ -6,6 +6,8 @@ import { ShoppingBag } from "lucide-react";
 import { CafeShell } from "@/components/layout/CafeShell";
 import type { Dish } from "@/data/menuData";
 import { getCustomerOrder, getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
+import { listGuestOffers, previewGuestOffer, type GuestOfferCard } from "@/actions/offers";
+import { CouponSheet } from "@/components/order/CouponSheet";
 import { buildCategoryRail, extraCheeseQty, extrasLabel, findExtraCheeseDish, isCancelledStatus, lineItemTotal, normalizeOrderStatus, type ItemExtras } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
@@ -56,9 +58,15 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [history, setHistory] = useState<GuestHistoryOrder[]>([]);
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponOffers, setCouponOffers] = useState<GuestOfferCard[]>([]);
+  const [couponBirthday, setCouponBirthday] = useState(false);
+  const [couponRegistered, setCouponRegistered] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; name: string; discount: number; net: number } | null>(null);
   const [pending, startTransition] = useTransition();
   const placedRef = useRef(placed);
   placedRef.current = placed;
+  const skipAutoCoupon = useRef(false);
 
   useEffect(() => {
     setPlaced(readPlacedOrders(tableNumber));
@@ -206,6 +214,53 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
     }
     return lines;
   });
+  const cartKey = posLines.map((line) => `${line.id}:${line.quantity}`).join(",");
+  const payable = appliedCoupon ? appliedCoupon.net : total;
+  const discount = appliedCoupon?.discount ?? 0;
+
+  useEffect(() => {
+    if (!guest || posLines.length === 0) {
+      setCouponOffers([]);
+      return;
+    }
+    const items = posLines.map((line) => ({ id: line.id, price: line.price, quantity: line.quantity }));
+    let cancelled = false;
+    void listGuestOffers({
+      phone: guest.phone,
+      email: guest.email,
+      emailVerified: guest.emailVerified,
+      dateOfBirth: guest.dateOfBirth,
+      items,
+    }).then((result) => {
+      if (cancelled || !result.ok) return;
+      setCouponOffers(result.offers);
+      setCouponBirthday(Boolean(result.birthday));
+      setCouponRegistered(Boolean(result.registered));
+      setAppliedCoupon((current) => {
+        if (current) {
+          const still = result.offers.find((offer) => offer.code === current.code && !offer.locked);
+          if (!still || still.savings <= 0) return null;
+          return { code: still.code, name: still.name, discount: still.savings, net: total - still.savings };
+        }
+        if (skipAutoCoupon.current) return current;
+        const birthdayOffer = result.offers.find(
+          (offer) => offer.audience === "birthday" && !offer.locked && offer.savings > 0
+        );
+        if (!birthdayOffer) return null;
+        return {
+          code: birthdayOffer.code,
+          name: birthdayOffer.name,
+          discount: birthdayOffer.savings,
+          net: total - birthdayOffer.savings,
+        };
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // cartKey serializes line ids/qty so we don't depend on a new posLines array each render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guest, cartKey, total]);
 
   const kitchenNotes = bagItems
     .map((row) => {
@@ -217,6 +272,31 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
 
   const visitOrders = placed.filter((order) => !isCancelledStatus(order.status));
   const menuHref = tableNumber ? `/menu?table=${tableNumber}` : "/menu";
+
+  async function applyCouponCode(code: string) {
+    if (!guest) return;
+    const preview = await previewGuestOffer({
+      code,
+      phone: guest.phone,
+      email: guest.email,
+      emailVerified: guest.emailVerified,
+      dateOfBirth: guest.dateOfBirth,
+      items: posLines,
+    });
+    if (!preview.ok) {
+      setMessage(preview.error);
+      return;
+    }
+    skipAutoCoupon.current = false;
+    setAppliedCoupon({
+      code: preview.code,
+      name: preview.name,
+      discount: preview.discount,
+      net: preview.net,
+    });
+    setMessage(null);
+    setCouponOpen(false);
+  }
 
   function submit() {
     startTransition(async () => {
@@ -235,6 +315,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         notes: kitchenNotes || undefined,
         customerName: guest.name,
         customerPhone: guest.phone,
+        offerCode: appliedCoupon?.code,
       });
       if (!placed.ok) {
         setMessage(placed.error);
@@ -259,6 +340,8 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
       setResult(snapshot);
       setQty({});
       setExtrasById({});
+      setAppliedCoupon(null);
+      skipAutoCoupon.current = false;
       setBagOpen(false);
       setScreen("success");
       void loadHistory(guest.phone);
@@ -416,7 +499,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
                 <ShoppingBag className="h-5 w-5" />
                 {itemCount} item{itemCount === 1 ? "" : "s"}
               </span>
-              <span className="font-black">₹{total} · View cart</span>
+              <span className="font-black">₹{payable} · View cart</span>
             </button>
           </div>
         </div>
@@ -441,6 +524,10 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
         items={bagItems}
         dishes={dishes}
         total={total}
+        payable={payable}
+        discount={discount}
+        appliedCode={appliedCoupon?.code ?? null}
+        appliedName={appliedCoupon?.name}
         pending={pending}
         error={message}
         canPlace={posLines.length > 0}
@@ -451,7 +538,30 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
           openCustomize(dish);
         }}
         onRemove={(dish) => setCount(dish, 0)}
+        onOpenCoupons={() => {
+          setMessage(null);
+          setCouponOpen(true);
+        }}
+        onClearCoupon={() => {
+          skipAutoCoupon.current = true;
+          setAppliedCoupon(null);
+        }}
         onPlace={submit}
+      />
+
+      <CouponSheet
+        open={couponOpen}
+        birthday={couponBirthday}
+        registered={couponRegistered}
+        offers={couponOffers}
+        appliedCode={appliedCoupon?.code ?? null}
+        error={message}
+        onClose={() => setCouponOpen(false)}
+        onApply={(code) => void applyCouponCode(code)}
+        onRemove={() => {
+          skipAutoCoupon.current = true;
+          setAppliedCoupon(null);
+        }}
       />
 
       <GuestOrdersSheet

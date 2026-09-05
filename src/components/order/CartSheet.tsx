@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Pencil, Trash2, X } from "lucide-react";
+import { Percent, Pencil, Trash2, X } from "lucide-react";
 import type { Dish } from "@/data/menuData";
 import { extrasLabel, lineItemTotal, type ItemExtras } from "@/lib/order-display";
 import { QtyStepper } from "@/components/order/QtyStepper";
@@ -16,6 +16,10 @@ type CartSheetProps = {
   items: BagRow[];
   dishes: Dish[];
   total: number;
+  payable: number;
+  discount: number;
+  appliedCode: string | null;
+  appliedName?: string | null;
   pending: boolean;
   error: string | null;
   canPlace: boolean;
@@ -23,6 +27,8 @@ type CartSheetProps = {
   onQuantity: (dish: Dish, next: number) => void;
   onEdit: (dish: Dish) => void;
   onRemove: (dish: Dish) => void;
+  onOpenCoupons: () => void;
+  onClearCoupon: () => void;
   onPlace: () => void;
 };
 
@@ -31,6 +37,10 @@ export function CartSheet({
   items,
   dishes,
   total,
+  payable,
+  discount,
+  appliedCode,
+  appliedName,
   pending,
   error,
   canPlace,
@@ -38,6 +48,8 @@ export function CartSheet({
   onQuantity,
   onEdit,
   onRemove,
+  onOpenCoupons,
+  onClearCoupon,
   onPlace,
 }: CartSheetProps) {
   return (
@@ -97,20 +109,60 @@ export function CartSheet({
                 </ul>
               )}
               {error ? <p className="mt-3 text-sm font-semibold text-red-600">{error}</p> : null}
+
+              {items.length > 0 ? (
+                <div className="mt-4 flex w-full items-center justify-between rounded-2xl border border-dashed border-emerald-200 bg-emerald-50 px-4 py-3 text-left">
+                  <button type="button" onClick={onOpenCoupons} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-700 text-white">
+                      <Percent className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      {appliedCode ? (
+                        <>
+                          <span className="block text-sm font-black text-emerald-800">{appliedCode} applied</span>
+                          <span className="block truncate text-xs text-emerald-700">
+                            {appliedName ? `${appliedName} · ` : ""}You save ₹{discount}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="block text-sm font-black text-gray-900">Apply coupon</span>
+                          <span className="block text-xs text-gray-500">View birthday and member offers</span>
+                        </>
+                      )}
+                    </span>
+                  </button>
+                  {appliedCode ? (
+                    <button type="button" className="pl-3 text-xs font-black text-red-600" onClick={onClearCoupon}>
+                      REMOVE
+                    </button>
+                  ) : (
+                    <button type="button" className="pl-3 text-xs font-black text-emerald-700" onClick={onOpenCoupons}>
+                      VIEW
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
             <div className="border-t border-gray-100 px-5 py-4">
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
+                  <span>Item total</span>
                   <span className="font-semibold text-gray-900">₹{total}</span>
                 </div>
+                {discount > 0 ? (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Coupon discount</span>
+                    <span className="font-semibold">-₹{discount}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between text-gray-400">
                   <span>Tax & service</span>
                   <span>Included</span>
                 </div>
                 <div className="flex justify-between pt-2 text-base font-black text-gray-900">
-                  <span>Total</span>
-                  <span>₹{total}</span>
+                  <span>To pay</span>
+                  <span>₹{payable}</span>
                 </div>
               </div>
               <button
@@ -119,7 +171,7 @@ export function CartSheet({
                 onClick={onPlace}
                 className="mt-4 flex min-h-14 w-full items-center justify-center rounded-full bg-[#F5B400] text-base font-black text-gray-900 shadow-lg disabled:opacity-50 active:scale-[0.99]"
               >
-                {pending ? "Sending to kitchen…" : `Place order · ₹${total}`}
+                {pending ? "Sending to kitchen…" : `Place order · ₹${payable}`}
               </button>
             </div>
           </motion.div>

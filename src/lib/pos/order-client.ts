@@ -18,6 +18,7 @@ export type SubmitOrderPayload = {
   customer_name?: string;
   customer_phone?: string;
   notes?: string;
+  offer_code?: string;
 };
 
 export type PosOrderCreated = {
