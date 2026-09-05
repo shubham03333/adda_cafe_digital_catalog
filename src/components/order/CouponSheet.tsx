@@ -74,7 +74,7 @@ export function CouponSheet({
                     value={typed}
                     onChange={(event) => setTyped(event.target.value.toUpperCase())}
                     placeholder="Enter coupon code"
-                    className="h-12 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-sm font-bold tracking-wide text-gray-900 outline-none"
+                    className="h-12 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-base font-bold tracking-wide text-gray-900 outline-none"
                   />
                   <button
                     type="button"
