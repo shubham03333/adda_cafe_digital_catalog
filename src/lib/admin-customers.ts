@@ -12,6 +12,8 @@ export type CatalogCustomer = {
   spent: number;
   lastOrderAt: string | null;
   createdAt: string | null;
+  dateOfBirth: string | null;
+  offersOptIn: boolean;
 };
 
 type GuestRow = {
@@ -20,6 +22,8 @@ type GuestRow = {
   email: string | null;
   email_verified: boolean | null;
   created_at: string | null;
+  date_of_birth: string | null;
+  offers_opt_in: boolean | null;
 };
 
 type OrderRow = {
@@ -38,7 +42,7 @@ async function fetchAllGuests(): Promise<GuestRow[]> {
   for (let from = 0; from < 20_000; from += pageSize) {
     const { data, error } = await supabase
       .from("guest_customers")
-      .select("name, phone, email, email_verified, created_at")
+      .select("name, phone, email, email_verified, created_at, date_of_birth, offers_opt_in")
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .range(from, from + pageSize - 1);
     if (error || !data?.length) {
@@ -93,6 +97,8 @@ export async function getCatalogCustomers(): Promise<CatalogCustomer[]> {
         spent: extras?.spent ?? 0,
         lastOrderAt: extras?.lastOrderAt ?? null,
         createdAt: extras?.createdAt ?? null,
+        dateOfBirth: extras?.dateOfBirth ?? null,
+        offersOptIn: Boolean(extras?.offersOptIn),
       });
       return;
     }
@@ -105,6 +111,8 @@ export async function getCatalogCustomers(): Promise<CatalogCustomer[]> {
     if (extras?.createdAt && (!existing.createdAt || extras.createdAt < existing.createdAt)) {
       existing.createdAt = extras.createdAt;
     }
+    if (extras?.dateOfBirth && !existing.dateOfBirth) existing.dateOfBirth = extras.dateOfBirth;
+    if (extras?.offersOptIn) existing.offersOptIn = true;
   }
 
   for (const guest of guests) {
@@ -113,6 +121,8 @@ export async function getCatalogCustomers(): Promise<CatalogCustomer[]> {
       emailVerified: Boolean(guest.email_verified),
       registered: true,
       createdAt: guest.created_at,
+      dateOfBirth: guest.date_of_birth ? String(guest.date_of_birth).slice(0, 10) : null,
+      offersOptIn: Boolean(guest.offers_opt_in),
     });
   }
 

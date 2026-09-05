@@ -18,6 +18,8 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
   const [otpMode, setOtpMode] = useState<"signup" | "forgot">("signup");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [offersOptIn, setOffersOptIn] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -44,7 +46,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             event.preventDefault();
             startTransition(async () => {
               setMessage(null);
-              const result = await continueWithPhone({ name, phone });
+              const result = await continueWithPhone({ name, phone, dateOfBirth, offersOptIn });
               if (!result.ok) {
                 setMessage(result.error);
                 return;
@@ -68,6 +70,24 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             placeholder="Mobile number"
             className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900"
           />
+          <label className="block text-xs font-semibold text-gray-500">
+            Birthday (optional)
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              className="mt-1 h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900"
+            />
+          </label>
+          <label className="flex items-start gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={offersOptIn}
+              onChange={(e) => setOffersOptIn(e.target.checked)}
+              className="mt-1"
+            />
+            <span>WhatsApp me birthday and special offers.</span>
+          </label>
           <button
             type="submit"
             disabled={pending}
