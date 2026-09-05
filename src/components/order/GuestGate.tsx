@@ -60,7 +60,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900"
+            className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base text-gray-900"
           />
           <input
             required
@@ -68,7 +68,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Mobile number"
-            className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900"
+            className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base text-gray-900"
           />
           <label className="block text-xs font-semibold text-gray-500">
             Birthday (optional)
@@ -76,7 +76,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
               type="date"
               value={dateOfBirth}
               onChange={(e) => setDateOfBirth(e.target.value)}
-              className="mt-1 h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm text-gray-900"
+              className="mt-1 h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base text-gray-900"
             />
           </label>
           <label className="flex items-start gap-2 text-sm text-gray-600">
@@ -126,10 +126,10 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             });
           }}
         >
-          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
-          <input required inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile number" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
-          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
-          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min 6)" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
+          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
+          <input required inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Mobile number" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
+          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (min 6)" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
           <button type="submit" disabled={pending} className="h-12 w-full rounded-full bg-[#F5B400] text-sm font-black text-gray-900">
             {pending ? "Sending code…" : "Send email OTP"}
           </button>
@@ -155,8 +155,8 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             });
           }}
         >
-          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
-          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
+          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
           <button type="submit" disabled={pending} className="h-12 w-full rounded-full bg-[#F5B400] text-sm font-black text-gray-900">
             {pending ? "Signing in…" : "Sign in"}
           </button>
@@ -190,7 +190,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
             });
           }}
         >
-          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Account email" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Account email" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
           <button type="submit" disabled={pending} className="h-12 w-full rounded-full bg-[#F5B400] text-sm font-black text-gray-900">
             {pending ? "Sending…" : "Send reset code"}
           </button>
@@ -232,7 +232,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
           <p className="text-center text-sm text-gray-500">Enter the code sent to {email}</p>
           <input required inputMode="numeric" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-center text-lg tracking-widest" />
           {otpMode === "forgot" ? (
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New password" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-sm" />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="New password" className="h-12 w-full rounded-2xl border border-gray-200 bg-white px-4 text-base" />
           ) : null}
           <button type="submit" disabled={pending} className="h-12 w-full rounded-full bg-[#F5B400] text-sm font-black text-gray-900">
             {pending ? "Checking…" : "Verify email"}

@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   description: "Digital menu and Google review assistant for Adda Cafe.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 function supabaseOrigin() {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!raw) return null;
