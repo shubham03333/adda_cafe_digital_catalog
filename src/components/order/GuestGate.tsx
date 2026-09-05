@@ -51,7 +51,7 @@ export function GuestGate({ onReady }: { onReady: (guest: GuestProfile) => void 
                 setMessage(result.error);
                 return;
               }
-              save(result.guest);
+              save({ ...result.guest, dateOfBirth: dateOfBirth || result.guest.dateOfBirth || null });
             });
           }}
         >

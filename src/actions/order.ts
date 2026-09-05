@@ -27,6 +27,7 @@ export async function placeOrder(input: {
   notes?: string;
   customerName?: string;
   customerPhone?: string;
+  offerCode?: string;
 }) {
   if (!isOrderingEnabled()) {
     return { ok: false as const, error: "Ordering is not enabled yet." };
@@ -68,6 +69,7 @@ export async function placeOrder(input: {
       customer_name: customerName,
       customer_phone: customerPhone,
       notes: input.notes?.trim() || undefined,
+      offer_code: input.offerCode || undefined,
     });
 
     void persistPlacedOrder({

@@ -19,6 +19,7 @@ function mapGuest(row: {
   phone: string;
   email?: string | null;
   email_verified?: boolean;
+  date_of_birth?: string | null;
 }): GuestProfile {
   return {
     id: row.id,
@@ -26,6 +27,7 @@ function mapGuest(row: {
     phone: row.phone,
     email: row.email ?? null,
     emailVerified: Boolean(row.email_verified),
+    dateOfBirth: row.date_of_birth ? String(row.date_of_birth).slice(0, 10) : null,
   };
 }
 
@@ -47,13 +49,13 @@ export async function continueWithPhone(input: {
   if (!supabase) {
     return {
       ok: true as const,
-      guest: { id: `local-${phone}`, name, phone, email: null, emailVerified: false },
+      guest: { id: `local-${phone}`, name, phone, email: null, emailVerified: false, dateOfBirth: dob },
     };
   }
 
   const { data: existing } = await supabase
     .from("guest_customers")
-    .select("id, name, phone, email, email_verified")
+    .select("id, name, phone, email, email_verified, date_of_birth")
     .eq("cafe_id", DEFAULT_CAFE_ID)
     .eq("phone", phone)
     .maybeSingle();
@@ -63,7 +65,7 @@ export async function continueWithPhone(input: {
     if (dob) patch.date_of_birth = dob;
     if (offersOptIn) patch.offers_opt_in = true;
     await supabase.from("guest_customers").update(patch).eq("id", existing.id);
-    return { ok: true as const, guest: mapGuest({ ...existing, name }) };
+    return { ok: true as const, guest: mapGuest({ ...existing, name, date_of_birth: dob || (existing as { date_of_birth?: string | null }).date_of_birth }) };
   }
 
   const insert: Record<string, unknown> = { cafe_id: DEFAULT_CAFE_ID, phone, name, offers_opt_in: offersOptIn };
@@ -71,10 +73,10 @@ export async function continueWithPhone(input: {
   const { data, error } = await supabase
     .from("guest_customers")
     .insert(insert)
-    .select("id, name, phone, email, email_verified")
+    .select("id, name, phone, email, email_verified, date_of_birth")
     .single();
   if (error || !data) return { ok: false as const, error: "Could not save your number. Try again." };
-  return { ok: true as const, guest: mapGuest(data) };
+  return { ok: true as const, guest: mapGuest({ ...data, date_of_birth: dob || (data as { date_of_birth?: string | null }).date_of_birth }) };
 }
 
 export async function startEmailOtp(input: {
@@ -145,7 +147,7 @@ export async function verifyEmailOtp(input: { phone: string; otp: string }) {
 
   const { data } = await supabase
     .from("guest_customers")
-    .select("id, name, phone, email, email_verified, email_otp, email_otp_expires")
+    .select("id, name, phone, email, email_verified, email_otp, email_otp_expires, date_of_birth")
     .eq("cafe_id", DEFAULT_CAFE_ID)
     .eq("phone", phone)
     .maybeSingle();
@@ -177,7 +179,7 @@ export async function loginWithEmail(input: { email: string; password: string })
 
   const { data } = await supabase
     .from("guest_customers")
-    .select("id, name, phone, email, email_verified, password_hash")
+    .select("id, name, phone, email, email_verified, password_hash, date_of_birth")
     .eq("cafe_id", DEFAULT_CAFE_ID)
     .eq("email", email)
     .eq("email_verified", true)
