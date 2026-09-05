@@ -86,9 +86,11 @@ export function CustomersPanel({ customers }: { customers: CatalogCustomer[] }) 
       String(row.orderCount),
       String(Math.round(row.spent)),
       row.lastOrderAt || "",
+      row.dateOfBirth || "",
+      row.offersOptIn ? "yes" : "no",
     ]);
     const csv = [
-      ["Name", "Phone", "WhatsApp", "Email", "Source", "Orders", "Spent", "Last order"],
+      ["Name", "Phone", "WhatsApp", "Email", "Source", "Orders", "Spent", "Last order", "Birthday", "Offers opt-in"],
       ...rows,
     ]
       .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
@@ -224,6 +226,8 @@ export function CustomersPanel({ customers }: { customers: CatalogCustomer[] }) 
                   <th className="pb-2">Name</th>
                   <th className="pb-2">Phone</th>
                   <th className="pb-2">Email</th>
+                  <th className="pb-2">Birthday</th>
+                  <th className="pb-2">Offers</th>
                   <th className="pb-2">Orders</th>
                   <th className="pb-2">Last visit</th>
                   <th className="pb-2" />
@@ -248,6 +252,8 @@ export function CustomersPanel({ customers }: { customers: CatalogCustomer[] }) 
                     </td>
                     <td className="py-3 font-medium text-gray-700 dark:text-gray-200">{displayPhone(row.phone)}</td>
                     <td className="py-3 text-gray-500">{row.email || "—"}</td>
+                    <td className="py-3 text-gray-500">{row.dateOfBirth || "—"}</td>
+                    <td className="py-3 text-gray-500">{row.offersOptIn ? "Yes" : "—"}</td>
                     <td className="py-3">
                       {row.orderCount}
                       {row.spent > 0 ? (

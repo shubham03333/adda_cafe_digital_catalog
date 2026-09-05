@@ -29,11 +29,19 @@ function mapGuest(row: {
   };
 }
 
-export async function continueWithPhone(input: { name: string; phone: string }) {
+export async function continueWithPhone(input: {
+  name: string;
+  phone: string;
+  dateOfBirth?: string;
+  offersOptIn?: boolean;
+}) {
   const name = input.name.trim();
   const phone = normalizePhone(input.phone);
   if (name.length < 2) return { ok: false as const, error: "Enter your name." };
   if (!isValidPhone(phone)) return { ok: false as const, error: "Enter a valid 10-digit mobile number." };
+  const dob =
+    input.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(input.dateOfBirth) ? input.dateOfBirth : null;
+  const offersOptIn = Boolean(input.offersOptIn);
 
   const supabase = createServiceSupabase();
   if (!supabase) {
@@ -51,16 +59,18 @@ export async function continueWithPhone(input: { name: string; phone: string }) 
     .maybeSingle();
 
   if (existing) {
-    await supabase
-      .from("guest_customers")
-      .update({ name, updated_at: new Date().toISOString() })
-      .eq("id", existing.id);
+    const patch: Record<string, unknown> = { name, updated_at: new Date().toISOString() };
+    if (dob) patch.date_of_birth = dob;
+    if (offersOptIn) patch.offers_opt_in = true;
+    await supabase.from("guest_customers").update(patch).eq("id", existing.id);
     return { ok: true as const, guest: mapGuest({ ...existing, name }) };
   }
 
+  const insert: Record<string, unknown> = { cafe_id: DEFAULT_CAFE_ID, phone, name, offers_opt_in: offersOptIn };
+  if (dob) insert.date_of_birth = dob;
   const { data, error } = await supabase
     .from("guest_customers")
-    .insert({ cafe_id: DEFAULT_CAFE_ID, phone, name })
+    .insert(insert)
     .select("id, name, phone, email, email_verified")
     .single();
   if (error || !data) return { ok: false as const, error: "Could not save your number. Try again." };
