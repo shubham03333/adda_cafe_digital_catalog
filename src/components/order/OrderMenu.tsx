@@ -51,6 +51,8 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
   const [draftExtras, setDraftExtras] = useState<ItemExtras>(EMPTY_EXTRAS);
   const [screen, setScreen] = useState<"menu" | "success" | "track">("menu");
   const [message, setMessage] = useState<string | null>(null);
+  const [stockNotice, setStockNotice] = useState<string | null>(null);
+  const stockNoticeDishId = useRef<string | null>(null);
   const [result, setResult] = useState<SessionOrder | null>(null);
   const [placed, setPlaced] = useState<SessionOrder[]>([]);
   const [guest, setGuest] = useState<GuestProfile | null>(null);
@@ -94,12 +96,26 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         const data = (await response.json()) as { ids?: number[] };
         const ids = new Set(data.ids ?? []);
         if (cancelled) return;
-        setMenu((prev) =>
-          prev.map((dish) => ({
+        setMenu((prev) => {
+          const next = prev.map((dish) => ({
             ...dish,
             outOfStock: ids.has(Number(dish.posMenuItemId)),
-          }))
-        );
+          }));
+          const noticeId = stockNoticeDishId.current;
+          if (noticeId) {
+            const noticed = next.find((dish) => String(dish.id) === noticeId);
+            if (!noticed?.outOfStock) {
+              stockNoticeDishId.current = null;
+              setStockNotice(null);
+            }
+          }
+          setDetail((open) => {
+            if (!open) return open;
+            const live = next.find((dish) => String(dish.id) === String(open.id));
+            return live ? { ...open, outOfStock: live.outOfStock } : open;
+          });
+          return next;
+        });
         setQty((prev) => {
           const next = { ...prev };
           for (const dish of initialDishes) {
@@ -118,6 +134,15 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
       window.clearInterval(timer);
     };
   }, [initialDishes]);
+
+  useEffect(() => {
+    if (!stockNotice) return;
+    const timer = window.setTimeout(() => {
+      stockNoticeDishId.current = null;
+      setStockNotice(null);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [stockNotice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,9 +233,12 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
 
   function openCustomize(dish: Dish) {
     if (dish.outOfStock) {
-      setMessage("This item is out of stock for today.");
+      stockNoticeDishId.current = String(dish.id);
+      setStockNotice("This item is out of stock for today.");
       return;
     }
+    stockNoticeDishId.current = null;
+    setStockNotice(null);
     const current = countOf(dish);
     setDetail(dish);
     setDraftQty(Math.max(1, current));
@@ -220,7 +248,8 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
   function confirmCustomize() {
     if (!detail) return;
     if (detail.outOfStock) {
-      setMessage("This item is out of stock for today.");
+      stockNoticeDishId.current = String(detail.id);
+      setStockNotice("This item is out of stock for today.");
       setDetail(null);
       return;
     }
@@ -510,9 +539,9 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         </div>
       ) : null}
 
-      {message && screen === "menu" ? (
+      {stockNotice && screen === "menu" ? (
         <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-red-50 p-3 text-sm font-semibold text-red-800">
-          {message}
+          {stockNotice}
         </div>
       ) : null}
 
