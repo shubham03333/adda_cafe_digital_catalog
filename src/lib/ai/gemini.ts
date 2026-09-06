@@ -2,10 +2,9 @@ import { buildReviewPrompt, type ReviewPromptInput } from "@/lib/ai/prompts";
 import type { ReviewSuggestion } from "@/types";
 
 const MODELS = [
+  "gemini-3.1-flash-lite-preview",
   "gemini-flash-latest",
   process.env.GEMINI_MODEL,
-  "gemini-3.6-flash",
-  "gemini-3.1-flash-lite-preview",
 ].filter((model, index, list): model is string => Boolean(model) && list.indexOf(model) === index);
 
 function parseReviews(raw: string): string[] {
@@ -109,7 +108,7 @@ export async function generateGeminiJson(
         const status = error instanceof GeminiError ? error.status : 0;
         console.error(`[gemini] ${model} failed:`, error instanceof Error ? error.message : error);
         if (status === 503 || status === 429) {
-          await sleep(400 * (attempt + 1));
+          await sleep(800 * 2 ** attempt);
           if (attempt === 0) continue;
         }
         break;
