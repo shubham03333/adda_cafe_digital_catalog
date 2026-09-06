@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, Search, ShoppingBag, Star, X } from "lucide-react";
+import { ClipboardList, Search, ShoppingBag, SlidersHorizontal, Star, X } from "lucide-react";
 import { CAFE_NAME } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,8 @@ type OrderHeaderProps = {
   onQuery: (value: string) => void;
   onOpenCart: () => void;
   onOpenOrders?: () => void;
+  onOpenSort?: () => void;
+  sortActive?: boolean;
 };
 
 export function OrderHeader({
@@ -27,6 +29,8 @@ export function OrderHeader({
   onQuery,
   onOpenCart,
   onOpenOrders,
+  onOpenSort,
+  sortActive = false,
 }: OrderHeaderProps) {
   return (
     <header className="shrink-0 bg-white/95 backdrop-blur-xl">
@@ -59,6 +63,20 @@ export function OrderHeader({
           >
             <Star className="h-5 w-5 fill-[#F5B400] text-[#F5B400]" />
           </Link>
+          {onOpenSort ? (
+            <button
+              type="button"
+              onClick={onOpenSort}
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"
+              aria-label="Sort dishes"
+              title="Sort"
+            >
+              <SlidersHorizontal className="h-5 w-5" />
+              {sortActive ? (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#F5B400]" />
+              ) : null}
+            </button>
+          ) : null}
           <button
             type="button"
             className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900"

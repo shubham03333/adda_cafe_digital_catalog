@@ -44,6 +44,26 @@ export function compareMenuDish(a: Dish, b: Dish) {
   return a.name.localeCompare(b.name);
 }
 
+export type MenuSort = "recommended" | "price_asc" | "price_desc" | "rating_desc" | "prep_asc" | "prep_desc";
+
+export const MENU_SORT_OPTIONS: { id: MenuSort; label: string }[] = [
+  { id: "recommended", label: "Recommended" },
+  { id: "price_asc", label: "Price: low to high" },
+  { id: "price_desc", label: "Price: high to low" },
+  { id: "rating_desc", label: "Rating: high to low" },
+  { id: "prep_asc", label: "Prep time: fastest first" },
+  { id: "prep_desc", label: "Prep time: longest first" },
+];
+
+export function compareDishesBySort(a: Dish, b: Dish, sort: MenuSort) {
+  if (sort === "price_asc") return Number(a.price) - Number(b.price) || a.name.localeCompare(b.name);
+  if (sort === "price_desc") return Number(b.price) - Number(a.price) || a.name.localeCompare(b.name);
+  if (sort === "rating_desc") return Number(b.rating) - Number(a.rating) || a.name.localeCompare(b.name);
+  if (sort === "prep_asc") return prepMinutes(a) - prepMinutes(b) || a.name.localeCompare(b.name);
+  if (sort === "prep_desc") return prepMinutes(b) - prepMinutes(a) || a.name.localeCompare(b.name);
+  return compareMenuDish(a, b);
+}
+
 export function sortOrderMenuDishes(dishes: Dish[]): Dish[] {
   const cats = dishCategoriesInOrder(dishes);
   const rank = (category: string) => {
