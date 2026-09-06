@@ -1,4 +1,4 @@
-import type { Dish } from "@/data/menuData";
+import { DEFAULT_CATEGORIES, type Dish } from "@/data/menuData";
 
 const NON_VEG = /chicken|egg|mutton|fish|prawn|keema|non[-\s]?veg/i;
 
@@ -29,6 +29,39 @@ export function isExtraCategory(name: string) {
   return /^top+ings?$/i.test(name.trim());
 }
 
+export function dishCategoriesInOrder(dishes: Dish[]): string[] {
+  const present = new Set(dishes.map((dish) => dish.category).filter(Boolean));
+  const known = DEFAULT_CATEGORIES.filter((name) => name !== "All" && present.has(name));
+  const rest = [...present]
+    .filter((name) => !DEFAULT_CATEGORIES.includes(name))
+    .sort((a, b) => a.localeCompare(b));
+  return [...known, ...rest];
+}
+
+export function compareMenuDish(a: Dish, b: Dish) {
+  if (Boolean(a.popular) !== Boolean(b.popular)) return a.popular ? -1 : 1;
+  if (Number(b.rating) !== Number(a.rating)) return Number(b.rating) - Number(a.rating);
+  return a.name.localeCompare(b.name);
+}
+
+export function sortOrderMenuDishes(dishes: Dish[]): Dish[] {
+  const cats = dishCategoriesInOrder(dishes);
+  const rank = (category: string) => {
+    const index = cats.indexOf(category);
+    return index < 0 ? 999 : index;
+  };
+  return [...dishes].sort((a, b) => {
+    const byCategory = rank(a.category) - rank(b.category);
+    if (byCategory !== 0) return byCategory;
+    return compareMenuDish(a, b);
+  });
+}
+
+export function mostPopularDish(dishes: Dish[]): Dish | null {
+  if (!dishes.length) return null;
+  return [...dishes].sort(compareMenuDish)[0] ?? null;
+}
+
 export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
   const map = new Map<string, CategoryRailItem>();
   for (const dish of dishes) {
@@ -43,7 +76,10 @@ export function buildCategoryRail(dishes: Dish[]): CategoryRailItem[] {
       });
     }
   }
-  return [{ name: "All", count: dishes.length, image: "/adda.png" }, ...map.values()];
+  const ordered = dishCategoriesInOrder(dishes)
+    .map((name) => map.get(name))
+    .filter((item): item is CategoryRailItem => Boolean(item));
+  return [{ name: "All", count: dishes.length, image: "/adda.png" }, ...ordered];
 }
 
 export type ItemExtras = {

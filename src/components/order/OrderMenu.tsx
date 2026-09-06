@@ -8,7 +8,7 @@ import type { Dish } from "@/data/menuData";
 import { getCustomerOrder, getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
 import { listGuestOffers, previewGuestOffer, type GuestOfferCard } from "@/actions/offers";
 import { CouponSheet } from "@/components/order/CouponSheet";
-import { buildCategoryRail, extraCheeseQty, extrasLabel, findExtraCheeseDish, isCancelledStatus, lineItemTotal, normalizeOrderStatus, type ItemExtras } from "@/lib/order-display";
+import { buildCategoryRail, compareMenuDish, dishCategoriesInOrder, extraCheeseQty, extrasLabel, findExtraCheeseDish, isCancelledStatus, lineItemTotal, mostPopularDish, normalizeOrderStatus, sortOrderMenuDishes, type ItemExtras } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
 import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
@@ -51,6 +51,8 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
   const [draftExtras, setDraftExtras] = useState<ItemExtras>(EMPTY_EXTRAS);
   const [screen, setScreen] = useState<"menu" | "success" | "track">("menu");
   const [message, setMessage] = useState<string | null>(null);
+  const [stockNotice, setStockNotice] = useState<string | null>(null);
+  const stockNoticeDishId = useRef<string | null>(null);
   const [result, setResult] = useState<SessionOrder | null>(null);
   const [placed, setPlaced] = useState<SessionOrder[]>([]);
   const [guest, setGuest] = useState<GuestProfile | null>(null);
@@ -94,12 +96,26 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         const data = (await response.json()) as { ids?: number[] };
         const ids = new Set(data.ids ?? []);
         if (cancelled) return;
-        setMenu((prev) =>
-          prev.map((dish) => ({
+        setMenu((prev) => {
+          const next = prev.map((dish) => ({
             ...dish,
             outOfStock: ids.has(Number(dish.posMenuItemId)),
-          }))
-        );
+          }));
+          const noticeId = stockNoticeDishId.current;
+          if (noticeId) {
+            const noticed = next.find((dish) => String(dish.id) === noticeId);
+            if (!noticed?.outOfStock) {
+              stockNoticeDishId.current = null;
+              setStockNotice(null);
+            }
+          }
+          setDetail((open) => {
+            if (!open) return open;
+            const live = next.find((dish) => String(dish.id) === String(open.id));
+            return live ? { ...open, outOfStock: live.outOfStock } : open;
+          });
+          return next;
+        });
         setQty((prev) => {
           const next = { ...prev };
           for (const dish of initialDishes) {
@@ -118,6 +134,15 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
       window.clearInterval(timer);
     };
   }, [initialDishes]);
+
+  useEffect(() => {
+    if (!stockNotice) return;
+    const timer = window.setTimeout(() => {
+      stockNoticeDishId.current = null;
+      setStockNotice(null);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [stockNotice]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,12 +208,38 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return dishes.filter((dish) => {
+    const filtered = dishes.filter((dish) => {
       if (category !== "All" && dish.category !== category) return false;
       if (!q) return true;
       return dish.name.toLowerCase().includes(q) || dish.description.toLowerCase().includes(q);
     });
+    if (category !== "All" || q) {
+      return [...filtered].sort(compareMenuDish);
+    }
+    const grouped = sortOrderMenuDishes(filtered);
+    const top = mostPopularDish(grouped);
+    if (!top) return grouped;
+    return [top, ...grouped.filter((dish) => String(dish.id) !== String(top.id))];
   }, [dishes, category, query]);
+
+  const menuSections = useMemo(() => {
+    const searching = Boolean(query.trim());
+    if (category !== "All" || searching || visible.length === 0) return null;
+    const top = visible[0];
+    const rest = visible.slice(1);
+    const byCategory = new Map<string, Dish[]>();
+    for (const dish of rest) {
+      const list = byCategory.get(dish.category) ?? [];
+      list.push(dish);
+      byCategory.set(dish.category, list);
+    }
+    return {
+      top,
+      groups: dishCategoriesInOrder(rest)
+        .map((name) => ({ name, dishes: byCategory.get(name) ?? [] }))
+        .filter((group) => group.dishes.length > 0),
+    };
+  }, [visible, category, query]);
 
   function countOf(dish: Dish) {
     return qty[String(dish.id)] ?? 0;
@@ -208,9 +259,12 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
 
   function openCustomize(dish: Dish) {
     if (dish.outOfStock) {
-      setMessage("This item is out of stock for today.");
+      stockNoticeDishId.current = String(dish.id);
+      setStockNotice("This item is out of stock for today.");
       return;
     }
+    stockNoticeDishId.current = null;
+    setStockNotice(null);
     const current = countOf(dish);
     setDetail(dish);
     setDraftQty(Math.max(1, current));
@@ -220,7 +274,8 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
   function confirmCustomize() {
     if (!detail) return;
     if (detail.outOfStock) {
-      setMessage("This item is out of stock for today.");
+      stockNoticeDishId.current = String(detail.id);
+      setStockNotice("This item is out of stock for today.");
       setDetail(null);
       return;
     }
@@ -510,9 +565,9 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         </div>
       ) : null}
 
-      {message && screen === "menu" ? (
+      {stockNotice && screen === "menu" ? (
         <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-red-50 p-3 text-sm font-semibold text-red-800">
-          {message}
+          {stockNotice}
         </div>
       ) : null}
 
@@ -520,17 +575,50 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         <CategoryRail items={rail} selected={category} onSelect={setCategory} />
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pt-1 hide-scrollbar">
           <div className="space-y-3 pb-4">
-          {visible.map((dish, index) => (
-            <MenuItemCard
-              key={String(dish.id)}
-              dish={dish}
-              quantity={countOf(dish)}
-              canOrder={orderingEnabled && Boolean(dish.posMenuItemId)}
-              priority={index < 8}
-              onAdd={() => openCustomize(dish)}
-              onOpen={() => openCustomize(dish)}
-            />
-          ))}
+          {menuSections ? (
+            <>
+              <p className="px-0.5 text-[11px] font-black uppercase tracking-wide text-gray-400">Most popular</p>
+              <MenuItemCard
+                key={String(menuSections.top.id)}
+                dish={menuSections.top}
+                quantity={countOf(menuSections.top)}
+                canOrder={orderingEnabled && Boolean(menuSections.top.posMenuItemId)}
+                priority
+                onAdd={() => openCustomize(menuSections.top)}
+                onOpen={() => openCustomize(menuSections.top)}
+              />
+              {menuSections.groups.map((group) => (
+                <div key={group.name} className="space-y-3">
+                  <p className="px-0.5 pt-2 text-[11px] font-black uppercase tracking-wide text-gray-400">
+                    {group.name}
+                  </p>
+                  {group.dishes.map((dish, index) => (
+                    <MenuItemCard
+                      key={String(dish.id)}
+                      dish={dish}
+                      quantity={countOf(dish)}
+                      canOrder={orderingEnabled && Boolean(dish.posMenuItemId)}
+                      priority={index < 4}
+                      onAdd={() => openCustomize(dish)}
+                      onOpen={() => openCustomize(dish)}
+                    />
+                  ))}
+                </div>
+              ))}
+            </>
+          ) : (
+            visible.map((dish, index) => (
+              <MenuItemCard
+                key={String(dish.id)}
+                dish={dish}
+                quantity={countOf(dish)}
+                canOrder={orderingEnabled && Boolean(dish.posMenuItemId)}
+                priority={index < 8}
+                onAdd={() => openCustomize(dish)}
+                onOpen={() => openCustomize(dish)}
+              />
+            ))
+          )}
           {visible.length === 0 ? (
             query.trim() ? (
               <EmptyState title="No matches" body="Try another search, or tap a category on the left." />
