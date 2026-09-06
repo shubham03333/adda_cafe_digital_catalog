@@ -8,7 +8,8 @@ import type { Dish } from "@/data/menuData";
 import { getCustomerOrder, getGuestOrderHistory, placeOrder, type GuestHistoryOrder } from "@/actions/order";
 import { listGuestOffers, previewGuestOffer, type GuestOfferCard } from "@/actions/offers";
 import { CouponSheet } from "@/components/order/CouponSheet";
-import { buildCategoryRail, compareMenuDish, dishCategoriesInOrder, extraCheeseQty, extrasLabel, findExtraCheeseDish, isCancelledStatus, lineItemTotal, mostPopularDish, normalizeOrderStatus, sortOrderMenuDishes, type ItemExtras } from "@/lib/order-display";
+import { SortSheet } from "@/components/order/SortSheet";
+import { buildCategoryRail, compareDishesBySort, compareMenuDish, dishCategoriesInOrder, extraCheeseQty, extrasLabel, findExtraCheeseDish, isCancelledStatus, lineItemTotal, mostPopularDish, normalizeOrderStatus, sortOrderMenuDishes, type ItemExtras, type MenuSort } from "@/lib/order-display";
 import { OrderHeader, FilterChips } from "@/components/order/OrderHeader";
 import { CategoryRail } from "@/components/order/CategoryRail";
 import { EmptyState, MenuItemCard } from "@/components/order/MenuItemCard";
@@ -45,6 +46,8 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [sort, setSort] = useState<MenuSort>("recommended");
   const [bagOpen, setBagOpen] = useState(false);
   const [detail, setDetail] = useState<Dish | null>(null);
   const [draftQty, setDraftQty] = useState(1);
@@ -149,7 +152,7 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
     const node = dishListRef.current;
     if (!node) return;
     node.scrollTop = 0;
-  }, [category, query]);
+  }, [category, query, sort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +223,9 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
       if (!q) return true;
       return dish.name.toLowerCase().includes(q) || dish.description.toLowerCase().includes(q);
     });
+    if (sort !== "recommended") {
+      return [...filtered].sort((a, b) => compareDishesBySort(a, b, sort));
+    }
     if (category !== "All" || q) {
       return [...filtered].sort(compareMenuDish);
     }
@@ -227,11 +233,11 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
     const top = mostPopularDish(grouped);
     if (!top) return grouped;
     return [top, ...grouped.filter((dish) => String(dish.id) !== String(top.id))];
-  }, [dishes, category, query]);
+  }, [dishes, category, query, sort]);
 
   const menuSections = useMemo(() => {
     const searching = Boolean(query.trim());
-    if (category !== "All" || searching || visible.length === 0) return null;
+    if (sort !== "recommended" || category !== "All" || searching || visible.length === 0) return null;
     const top = visible[0];
     const rest = visible.slice(1);
     const byCategory = new Map<string, Dish[]>();
@@ -246,7 +252,7 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         .map((name) => ({ name, dishes: byCategory.get(name) ?? [] }))
         .filter((group) => group.dishes.length > 0),
     };
-  }, [visible, category, query]);
+  }, [visible, category, query, sort]);
 
   function countOf(dish: Dish) {
     return qty[String(dish.id)] ?? 0;
@@ -524,6 +530,8 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
         onQuery={setQuery}
         onOpenCart={() => setBagOpen(true)}
         onOpenOrders={openHistory}
+        onOpenSort={() => setSortOpen(true)}
+        sortActive={sort !== "recommended"}
       />
       <FilterChips options={categoryChips} value={category} onChange={setCategory} />
 
@@ -700,6 +708,16 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
           setAppliedCoupon(null);
         }}
         onPlace={submit}
+      />
+
+      <SortSheet
+        open={sortOpen}
+        value={sort}
+        onClose={() => setSortOpen(false)}
+        onSelect={(next) => {
+          setSort(next);
+          setSortOpen(false);
+        }}
       />
 
       <CouponSheet
