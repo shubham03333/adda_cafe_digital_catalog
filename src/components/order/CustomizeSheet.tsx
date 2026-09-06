@@ -72,7 +72,7 @@ export function CustomizeSheet({
           transition={{ type: "spring", damping: 28, stiffness: 320 }}
         >
           <div className="relative h-44 shrink-0 overflow-hidden rounded-t-[28px]">
-            <MenuPhoto src={dish.image} className="h-full w-full" priority />
+            <MenuPhoto src={dish.image} className={`h-full w-full ${soldOut ? "grayscale brightness-90" : ""}`} priority />
             <button
               type="button"
               className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-900 shadow"
