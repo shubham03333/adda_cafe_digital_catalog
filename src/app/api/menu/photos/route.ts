@@ -12,7 +12,7 @@ function absoluteImage(image: string, origin: string) {
 
 export async function GET(request: Request) {
   const origin = new URL(request.url).origin;
-  const dishes = await getLiveMenu();
+  const dishes = await getLiveMenu({ overlayStockout: false });
   const photos: Record<string, string> = {};
   for (const dish of dishes) {
     const posId = Number(dish.posMenuItemId);

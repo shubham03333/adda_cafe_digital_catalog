@@ -2,6 +2,8 @@ import { createServiceSupabase } from "@/lib/supabase/admin";
 import { DEFAULT_CAFE_ID } from "@/lib/utils";
 import { menuData, type Dish } from "@/data/menuData";
 import { isPosMenuSync } from "@/lib/pos/config";
+import { overlayPosStockouts } from "@/lib/pos-stockout";
+import { unstable_noStore as noStore } from "next/cache";
 
 type MenuRow = {
   id: string;
@@ -62,10 +64,15 @@ async function seedIfEmpty() {
   );
 }
 
-export async function getLiveMenu(): Promise<Dish[]> {
+export async function getLiveMenu(options?: { overlayStockout?: boolean }): Promise<Dish[]> {
+  const overlay = options?.overlayStockout !== false;
+  if (overlay) noStore();
   try {
     const supabase = createServiceSupabase();
-    if (!supabase) return isPosMenuSync() ? [] : menuData;
+    if (!supabase) {
+      const fallback = isPosMenuSync() ? [] : menuData;
+      return overlay ? overlayPosStockouts(fallback) : fallback;
+    }
     await seedIfEmpty();
     const { data, error } = await supabase
       .from("menu_items")
@@ -73,21 +80,30 @@ export async function getLiveMenu(): Promise<Dish[]> {
       .eq("cafe_id", DEFAULT_CAFE_ID)
       .eq("available", true)
       .order("sort_order", { ascending: true });
-    if (error) return isPosMenuSync() ? [] : menuData;
-    if (!data?.length) return isPosMenuSync() ? [] : menuData;
+    if (error) {
+      const fallback = isPosMenuSync() ? [] : menuData;
+      return overlay ? overlayPosStockouts(fallback) : fallback;
+    }
+    if (!data?.length) {
+      const fallback = isPosMenuSync() ? [] : menuData;
+      return overlay ? overlayPosStockouts(fallback) : fallback;
+    }
 
     const mapped = data.map(mapRow);
-    if (!isPosMenuSync()) return mapped;
-
-    const unique = new Map<number, Dish>();
-    for (const dish of mapped) {
-      const posId = Number(dish.posMenuItemId);
-      if (!Number.isInteger(posId) || posId < 1) continue;
-      if (!unique.has(posId)) unique.set(posId, dish);
-    }
-    return [...unique.values()];
+    const uniqueList = (() => {
+      if (!isPosMenuSync()) return mapped;
+      const unique = new Map<number, Dish>();
+      for (const dish of mapped) {
+        const posId = Number(dish.posMenuItemId);
+        if (!Number.isInteger(posId) || posId < 1) continue;
+        if (!unique.has(posId)) unique.set(posId, dish);
+      }
+      return [...unique.values()];
+    })();
+    return overlay ? overlayPosStockouts(uniqueList) : uniqueList;
   } catch {
-    return isPosMenuSync() ? [] : menuData;
+    const fallback = isPosMenuSync() ? [] : menuData;
+    return overlay ? overlayPosStockouts(fallback) : fallback;
   }
 }
 

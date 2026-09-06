@@ -17,15 +17,21 @@ type MenuItemCardProps = {
 export function MenuItemCard({ dish, quantity, canOrder, priority = false, onAdd, onOpen }: MenuItemCardProps) {
   const veg = isVegDish(dish);
   const mins = prepMinutes(dish);
+  const soldOut = Boolean(dish.outOfStock);
 
   return (
-    <article className="rounded-[20px] bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition active:scale-[0.99]">
+    <article className={`rounded-[20px] bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition active:scale-[0.99] ${soldOut ? "opacity-80" : ""}`}>
       <button type="button" className="flex w-full gap-3 text-left" onClick={onOpen}>
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl bg-gray-100">
           <MenuPhoto src={dish.image} className="h-full w-full" priority={priority} />
           {dish.popular ? (
             <span className="absolute left-1 top-1 rounded-full bg-[#F5B400] px-1.5 py-0.5 text-[9px] font-black text-gray-900">
               Popular
+            </span>
+          ) : null}
+          {soldOut ? (
+            <span className="absolute inset-x-1 bottom-1 rounded-full bg-white/95 px-1.5 py-0.5 text-center text-[9px] font-black uppercase tracking-wide text-gray-900">
+              Sold out
             </span>
           ) : null}
         </div>
@@ -48,7 +54,7 @@ export function MenuItemCard({ dish, quantity, canOrder, priority = false, onAdd
       </button>
       <div className="mt-2 flex items-center justify-between pl-[100px]">
         <p className="text-base font-black text-gray-900">₹{dish.price}</p>
-        {canOrder ? (
+        {canOrder && !soldOut ? (
           <button
             type="button"
             onClick={onAdd}
@@ -56,6 +62,8 @@ export function MenuItemCard({ dish, quantity, canOrder, priority = false, onAdd
           >
             {quantity > 0 ? `Add · ${quantity}` : "Add"}
           </button>
+        ) : soldOut ? (
+          <span className="text-[10px] font-bold uppercase tracking-wide text-red-600">Sold out today</span>
         ) : (
           <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Ask staff</span>
         )}
