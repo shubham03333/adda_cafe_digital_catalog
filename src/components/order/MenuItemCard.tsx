@@ -20,10 +20,14 @@ export function MenuItemCard({ dish, quantity, canOrder, priority = false, onAdd
   const soldOut = Boolean(dish.outOfStock);
 
   return (
-    <article className={`rounded-[20px] bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition active:scale-[0.99] ${soldOut ? "opacity-80" : ""}`}>
+    <article className="rounded-[20px] bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.06)] transition active:scale-[0.99]">
       <button type="button" className="flex w-full gap-3 text-left" onClick={onOpen}>
         <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl bg-gray-100">
-          <MenuPhoto src={dish.image} className="h-full w-full" priority={priority} />
+          <MenuPhoto
+            src={dish.image}
+            className={`h-full w-full ${soldOut ? "grayscale brightness-90" : ""}`}
+            priority={priority}
+          />
           {dish.popular ? (
             <span className="absolute left-1 top-1 rounded-full bg-[#F5B400] px-1.5 py-0.5 text-[9px] font-black text-gray-900">
               Popular
