@@ -70,6 +70,7 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
   const placedRef = useRef(placed);
   placedRef.current = placed;
   const skipAutoCoupon = useRef(false);
+  const dishListRef = useRef<HTMLDivElement>(null);
   const dishes = menu;
 
   useEffect(() => {
@@ -143,6 +144,12 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
     }, 4000);
     return () => window.clearTimeout(timer);
   }, [stockNotice]);
+
+  useEffect(() => {
+    const node = dishListRef.current;
+    if (!node) return;
+    node.scrollTop = 0;
+  }, [category, query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -573,7 +580,10 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
 
       <div className={cn("flex min-h-0 flex-1 items-stretch gap-2 overflow-hidden px-2", itemCount > 0 ? "pb-24" : "pb-3")}>
         <CategoryRail items={rail} selected={category} onSelect={setCategory} />
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pt-1 hide-scrollbar">
+        <div
+          ref={dishListRef}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pt-1 hide-scrollbar"
+        >
           <div className="space-y-3 pb-4">
           {menuSections ? (
             <>
