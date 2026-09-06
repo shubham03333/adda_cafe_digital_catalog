@@ -7,6 +7,7 @@ import { getLiveMenu } from "@/lib/menu";
 import { compactWaiterMenu } from "@/lib/ai/menu-context";
 import { buildWaiterGuestContext } from "@/lib/ai/guest-context";
 import { generateWaiterReply } from "@/lib/ai/waiter";
+import { GeminiError } from "@/lib/ai/gemini";
 import { trackEvent } from "@/lib/analytics";
 import { rateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/security";
@@ -51,7 +52,7 @@ export async function askWaiter(input: unknown) {
 
   try {
     const [dishes, guest, offers] = await Promise.all([
-      getLiveMenu(),
+      getLiveMenu({ overlayStockout: false }),
       buildWaiterGuestContext({ name: parsed.data.guestName, phone: parsed.data.guestPhone }),
       (async () => {
         if (!posConfigured()) return [] as { code: string; name: string; audience: string }[];
@@ -100,11 +101,17 @@ export async function askWaiter(input: unknown) {
     });
 
     return { ok: true as const, ...reply };
-  } catch {
-    await trackEvent("waiter_error", { sessionId: parsed.data.sessionId });
+  } catch (error) {
+    await trackEvent("waiter_error", {
+      sessionId: parsed.data.sessionId,
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    const quota = error instanceof GeminiError && (error.status === 429 || error.status === 503);
     return {
       ok: false as const,
-      error: "I couldn't reach the kitchen just now. Please try again, or ask our staff.",
+      error: quota
+        ? "I'm a bit busy right now. Please wait a moment and ask again."
+        : "I couldn't reach the kitchen just now. Please try again, or ask our staff.",
     };
   }
 }

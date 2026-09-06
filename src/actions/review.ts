@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { trackEvent } from "@/lib/analytics";
-import { generateReviewSuggestions } from "@/lib/ai/gemini";
+import { generateReviewSuggestions, GeminiError } from "@/lib/ai/gemini";
 import { CAFE_NAME } from "@/lib/branding";
 import { createServiceSupabase } from "@/lib/supabase/admin";
 import { DEFAULT_CAFE_ID } from "@/lib/utils";
@@ -152,10 +152,12 @@ export async function generateReviews(input: unknown) {
       sessionId: parsed.sessionId,
       message: error instanceof Error ? error.message : "unknown",
     });
+    const quota = error instanceof GeminiError && error.status === 429;
     return {
       ok: false as const,
-      error:
-        "We could not generate reviews right now. You can still open Google Reviews and write in your own words.",
+      error: quota
+        ? "The review assistant is busy right now. Please wait a minute and try again."
+        : "We could not generate reviews right now. You can still open Google Reviews and write in your own words.",
       googleReviewUrl: settings.google_review_url,
     };
   }

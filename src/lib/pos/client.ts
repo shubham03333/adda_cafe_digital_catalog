@@ -26,6 +26,7 @@ export async function posFetch<T>(path: string, init?: RequestInit): Promise<T> 
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
+    signal: init?.signal ?? AbortSignal.timeout(5000),
   });
 
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
