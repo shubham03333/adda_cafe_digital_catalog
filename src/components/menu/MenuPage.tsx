@@ -12,6 +12,9 @@ import { CafeShell } from "@/components/layout/CafeShell";
 import { useDevicePerformance } from "@/hooks/useDevicePerformance";
 import { menuData, categoriesFrom, type Dish } from "@/data/menuData";
 import { isOrderingEnabled } from "@/lib/pos/flags-client";
+import dynamic from "next/dynamic";
+
+const WaiterLauncher = dynamic(() => import("@/components/waiter/WaiterLauncher"), { ssr: false });
 
 const RECENT_KEY = "adda-recent-searches";
 
@@ -166,6 +169,7 @@ export function MenuPage({ tableNumber = null, dishes = menuData }: MenuPageProp
           </Link>
         </div>
       </div>
+      <WaiterLauncher dishes={dishes} tableNumber={tableNumber} lift />
     </CafeShell>
   );
 }

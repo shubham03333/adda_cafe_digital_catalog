@@ -9,11 +9,13 @@ import { cn } from "@/lib/utils";
 type SortSheetProps = {
   open: boolean;
   value: MenuSort;
+  canClear: boolean;
   onClose: () => void;
   onSelect: (value: MenuSort) => void;
+  onClear: () => void;
 };
 
-export function SortSheet({ open, value, onClose, onSelect }: SortSheetProps) {
+export function SortSheet({ open, value, canClear, onClose, onSelect, onClear }: SortSheetProps) {
   return (
     <SheetPortal>
       <AnimatePresence>
@@ -69,6 +71,14 @@ export function SortSheet({ open, value, onClose, onSelect }: SortSheetProps) {
                   );
                 })}
               </ul>
+              <button
+                type="button"
+                onClick={onClear}
+                disabled={!canClear}
+                className="mt-4 flex min-h-12 w-full items-center justify-center rounded-2xl border border-gray-200 text-sm font-black text-gray-900 disabled:opacity-40"
+              >
+                Clear filter
+              </button>
             </motion.div>
           </>
         ) : null}

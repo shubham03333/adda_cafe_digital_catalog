@@ -36,55 +36,47 @@ function extractText(payload: {
   return text;
 }
 
-async function generateWithModel(apiKey: string, model: string, prompt: string) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.95,
-          responseMimeType: "application/json",
-        },
-      }),
-    }
-  );
-
-  const payload = (await response.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-    error?: { message?: string };
-  };
-
-  if (!response.ok) {
-    throw new Error(payload.error?.message ?? `Gemini ${model} failed (${response.status})`);
-  }
-
-  return parseReviews(extractText(payload));
-}
-
-export async function generateReviewSuggestions(
-  input: ReviewPromptInput
-): Promise<ReviewSuggestion[]> {
+export async function generateGeminiJson(
+  prompt: string,
+  options?: { temperature?: number; systemInstruction?: string }
+) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
 
-  const prompt = buildReviewPrompt(input);
   let lastError: unknown;
-
   for (const model of MODELS) {
     try {
-      const reviews = await generateWithModel(apiKey, model, prompt);
-      return reviews.map((review, index) => ({
-        id: `suggestion-${index + 1}`,
-        text: review,
-      }));
+      const body: Record<string, unknown> = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: options?.temperature ?? 0.95,
+          responseMimeType: "application/json",
+        },
+      };
+      if (options?.systemInstruction) {
+        body.systemInstruction = { parts: [{ text: options.systemInstruction }] };
+      }
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify(body),
+        }
+      );
+      const payload = (await response.json()) as {
+        candidates?: { content?: { parts?: { text?: string }[] } }[];
+        error?: { message?: string };
+      };
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? `Gemini ${model} failed (${response.status})`);
+      }
+      return extractText(payload);
     } catch (error) {
       lastError = error;
       console.error(`[gemini] ${model} failed:`, error instanceof Error ? error.message : error);
@@ -92,4 +84,16 @@ export async function generateReviewSuggestions(
   }
 
   throw lastError instanceof Error ? lastError : new Error("Gemini request failed");
+}
+
+export async function generateReviewSuggestions(
+  input: ReviewPromptInput
+): Promise<ReviewSuggestion[]> {
+  const prompt = buildReviewPrompt(input);
+  const raw = await generateGeminiJson(prompt, { temperature: 0.95 });
+  const reviews = parseReviews(raw);
+  return reviews.map((review, index) => ({
+    id: `suggestion-${index + 1}`,
+    text: review,
+  }));
 }
