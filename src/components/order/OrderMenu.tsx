@@ -21,6 +21,9 @@ import { appendPlacedOrder, readPlacedOrders, upsertPlacedOrder, writePlacedOrde
 import { GUEST_STORAGE_KEY, type GuestProfile } from "@/lib/guest-profile";
 import { GuestGate } from "@/components/order/GuestGate";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
+
+const WaiterLauncher = dynamic(() => import("@/components/waiter/WaiterLauncher"), { ssr: false });
 
 type OrderMenuProps = {
   tableNumber: number;
@@ -665,6 +668,13 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
           </div>
         </div>
       ) : null}
+
+      <WaiterLauncher
+        dishes={dishes}
+        tableNumber={tableNumber}
+        lift={itemCount > 0 && orderingEnabled}
+        onViewDish={(dish) => openCustomize(dish)}
+      />
 
       {detail ? (
         <CustomizeSheet

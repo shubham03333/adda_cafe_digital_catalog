@@ -13,7 +13,11 @@ export type AnalyticsEvent =
   | "pos_api_error"
   | "order_placed"
   | "order_status_updated"
-  | "webhook_failed";
+  | "webhook_failed"
+  | "waiter_question"
+  | "waiter_rate_limited"
+  | "waiter_error"
+  | "waiter_view_dish";
 
 export type ReviewSuggestion = {
   id: string;
