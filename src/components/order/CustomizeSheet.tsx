@@ -45,6 +45,7 @@ export function CustomizeSheet({
   onConfirm,
 }: CustomizeSheetProps) {
   if (!dish) return null;
+  const soldOut = Boolean(dish.outOfStock);
   const showCheese = allowsCheeseAddon(dish);
   const cheeseDish = findExtraCheeseDish(dishes);
   const cheesePrice = extraCheesePrice(dishes);
@@ -153,7 +154,9 @@ export function CustomizeSheet({
             {extrasLabel(extras) ? <p className="mt-2 text-xs text-gray-500">{extrasLabel(extras)}</p> : null}
           </div>
           <div className="border-t border-gray-100 p-4">
-            {canOrder ? (
+            {soldOut ? (
+              <p className="text-center text-sm font-semibold text-red-700">This item is out of stock for today.</p>
+            ) : canOrder ? (
               <button
                 type="button"
                 onClick={onConfirm}

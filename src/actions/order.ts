@@ -8,6 +8,7 @@ import { getOrderStatus, getOrderStatusByNumber, submitOrderToPos } from "@/lib/
 import { unstable_noStore as noStore } from "next/cache";
 import { tableCodeFromNumber } from "@/lib/pos/table-map";
 import { PosApiError } from "@/lib/pos/client";
+import { fetchPosStockoutIds } from "@/lib/pos-stockout";
 import { isValidPhone, normalizePhone } from "@/lib/guest-crypto";
 import { normalizeOrderStatus } from "@/lib/order-display";
 
@@ -40,6 +41,16 @@ export async function placeOrder(input: {
   }
   if (!input.items.length) {
     return { ok: false as const, error: "Add at least one dish." };
+  }
+
+  try {
+    const oos = new Set(await fetchPosStockoutIds());
+    const blocked = input.items.find((item) => oos.has(Number(item.id)));
+    if (blocked) {
+      return { ok: false as const, error: `${blocked.name} is out of stock for today.` };
+    }
+  } catch {
+    // POS check is repeated at order create
   }
   const customerName = String(input.customerName || "").trim();
   const customerPhone = normalizePhone(input.customerPhone || "");

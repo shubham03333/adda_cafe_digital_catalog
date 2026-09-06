@@ -38,7 +38,8 @@ function sessionId() {
 
 const EMPTY_EXTRAS: ItemExtras = { note: "" };
 
-export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuProps) {
+export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled }: OrderMenuProps) {
+  const [menu, setMenu] = useState(initialDishes);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [extrasById, setExtrasById] = useState<Record<string, ItemExtras>>({});
   const [category, setCategory] = useState("All");
@@ -67,6 +68,7 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   const placedRef = useRef(placed);
   placedRef.current = placed;
   const skipAutoCoupon = useRef(false);
+  const dishes = menu;
 
   useEffect(() => {
     setPlaced(readPlacedOrders(tableNumber));
@@ -78,6 +80,44 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
     }
     setGuestReady(true);
   }, [tableNumber]);
+
+  useEffect(() => {
+    setMenu(initialDishes);
+  }, [initialDishes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function pull() {
+      try {
+        const response = await fetch("/api/menu/stockouts", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { ids?: number[] };
+        const ids = new Set(data.ids ?? []);
+        if (cancelled) return;
+        setMenu((prev) =>
+          prev.map((dish) => ({
+            ...dish,
+            outOfStock: ids.has(Number(dish.posMenuItemId)),
+          }))
+        );
+        setQty((prev) => {
+          const next = { ...prev };
+          for (const dish of initialDishes) {
+            if (ids.has(Number(dish.posMenuItemId))) delete next[String(dish.id)];
+          }
+          return next;
+        });
+      } catch {
+        // keep last known flags
+      }
+    }
+    void pull();
+    const timer = window.setInterval(pull, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [initialDishes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,6 +207,10 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
   }
 
   function openCustomize(dish: Dish) {
+    if (dish.outOfStock) {
+      setMessage("This item is out of stock for today.");
+      return;
+    }
     const current = countOf(dish);
     setDetail(dish);
     setDraftQty(Math.max(1, current));
@@ -175,6 +219,11 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
 
   function confirmCustomize() {
     if (!detail) return;
+    if (detail.outOfStock) {
+      setMessage("This item is out of stock for today.");
+      setDetail(null);
+      return;
+    }
     setCount(detail, draftQty);
     setExtrasById((prev) => ({ ...prev, [String(detail.id)]: draftExtras }));
     setDetail(null);
@@ -458,6 +507,12 @@ export function OrderMenu({ tableNumber, dishes, orderingEnabled }: OrderMenuPro
           <Link href={menuHref} className="mt-2 block font-bold text-gray-900">
             Open menu
           </Link>
+        </div>
+      ) : null}
+
+      {message && screen === "menu" ? (
+        <div className="mx-3 mb-2 shrink-0 rounded-[20px] bg-red-50 p-3 text-sm font-semibold text-red-800">
+          {message}
         </div>
       ) : null}
 

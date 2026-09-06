@@ -241,6 +241,7 @@ export type Dish = {
   rating: number;
   popular: boolean;
   image: string;
+  outOfStock?: boolean;
 };
 
 export const DEFAULT_CATEGORIES = [
