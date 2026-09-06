@@ -723,9 +723,15 @@ export function OrderMenu({ tableNumber, dishes: initialDishes, orderingEnabled 
       <SortSheet
         open={sortOpen}
         value={sort}
+        canClear={sort !== "recommended" || category !== "All"}
         onClose={() => setSortOpen(false)}
         onSelect={(next) => {
           setSort(next);
+          setSortOpen(false);
+        }}
+        onClear={() => {
+          setSort("recommended");
+          setCategory("All");
           setSortOpen(false);
         }}
       />
